@@ -1,0 +1,186 @@
+﻿class Hello {}
+class List[T]<-Array[T]{}
+int<-int[] aisatu: 1
+(int<-int)[]
+(int<-int)<-(int, int) (x, y):[aisatu, zouni]
+class<-Hello{}.new()
+int {}
+List[List[List[List[int]]]]
+for {var i = 0, i <= 9, i++|
+}
+while{var i <- [1, 2, 3]}
+}
+while{var (x, y) <- [[1, 2], [2, 3], [3, 4]]}
+class {this int x, this int y|} Hello{var x, var y|
+  return (x, y)
+}
+public private internal protected
+int[]
+
+gene{
+  label l <- {val.length.random()|
+    var n = 2.random()
+    if (n == 0) return v1
+    else return v2
+  }<-{0.1| val.length.random()}
+  int m <- {int.max.random()|
+    return (v1 + v2) / 2
+  }
+  int n <- {10|
+    ##b.0
+    return (g1.n + g2.n) / 2
+    ##b.1
+    return (g1.n + g2.n) % int.max
+  }
+  int x
+  [T[]] ArrayCross {var l1, var l2, T.list[0]|
+    T[] bs
+    ##a.b
+    bs = T.list[l1]
+    ##a.c
+    bs = T.list[(l1 + l2) / 2]
+    ##end
+    for{var i = 0, i < bs.Length, i++|
+      T b = null
+      var r = [0, 1].random();
+      if {r == 0|
+        if {v1.length <= i| b = T.new()
+        else {b = v1[i]
+      else {
+        if {arr2.length <= i| b = T.new()
+        else {b = v2[i]
+      }
+    }
+    return bs
+  }
+  [T[]] ArrayMutation {0.1|
+    return val.add(T.new())
+  }
+  int M
+  Blk[] blks <- ArrayCross[Blk](val1.length, val2.length)->ArrayMutation[Blk]
+}<-{0.1|
+  var start = 0
+  var limit = gene.Count
+  var gs = gene.Select(var {x, y| x. M <= y.M}).Range(start, limit)
+  while{var g in gs, true|
+    if {var random : [0, 1].random(), random == 0|
+      return g
+    }
+  }
+  null
+}->{0.2| return gene.New()}
+
+gene.New()
+gene.M = int.max.random(30)
+gene.Store()
+gene.Select(var {x| x.score >= 1}.Sort(var {x, y| x.M <= y.M}).Range(10);
+##l.a
+print(1)
+##l.b
+print(2)
+model Parent{|
+  var x = 1
+  Child[] childs
+}
+model Child{|
+  var x = 1
+}
+p = Parent.New()
+model Blk{
+  int x <-{int.max.random()|
+    return (val1.x + val2.x) / 2
+  } -> {0.1|
+    return 1
+  }
+  int y <- {int.max.random()|
+    return 
+  } -> {0.1|
+    return int.max
+  }
+  Blk.id blk_id
+}
+server cluster{
+  signal return page1{var in, var out|
+    blk_id = 10
+    blk_id.update(db);
+    blk_id.x = 1;
+    blk_id = Blk.new()
+    db.Store(blk_id, blk_id.blk_id)
+    db.Blk.Select(var {x|x.x <= 1}).Sort(var {x, y| x.M <= y.M}).Range(10)
+    mem.Store(blk_id, blk_id.blk_id)
+    out.Store(blk_id, blk_id.blk_id)
+    out.send("abc")
+    log = 100.rand()
+    return ~<+div log|<br|>$(log)>~~
+  }
+}
+server{
+  signal page1{var in, var out|
+    var blk = Blk.new()
+    blk.blk_id = 10
+    blk.blk_id.update(db);
+    blk.blk_id.x = 1;
+    blk.blk_id = Blk.new()
+    db.Store(blk, blk.blk_id)
+    db.Blk.Select(var {x|x.x <= 1}).Sort(var {x, y| x.M <= y.M}).Range(10)
+    var c = connect.new()
+    c.send("abc", server.cluster.page1)
+    out.Store(blk, blk.blk_id)
+    out.send()
+  }
+}
+client{
+    blk_id = 10
+    blk_id.update(db);
+    blk_id.x = 1;
+    blk_id = Blk.new()
+    var o = connect.new()
+    o.Store(this, blk_id)
+    o.back{var in, var out|
+        var blks = in.Blk.Select()
+        db.Store(in)
+        var html = ~<background|
+            <div d , #background red, #onclick hello|
+              `どーも、どーも、ハルキーです。<#1|`どーもどーも、ハルキー２です">`ですです。
+              blks[0]
+              for{var i <- blks|
+                i`の紹介です。
+              }
+              $(i)
+              .`寿司を`$(i)`2個くいねえ`
+              .i`個食いねえ`
+              .`抹茶`
+              .`卵`
+              *`目次`
+              *`あらすじ`
+              @>$type("Blk*").Select()
+              >>`ホームページの書き方を教えて
+              >>>`ホームページの書き方を教えて
+              <<<ホームページを書くには・・・
+              string $mes
+              html $h
+            >
+        >~~
+        html.mes = "よくできました。"
+    }
+    signal hello{var in, var out|
+        var m = in.MouseEvent.First()
+    }
+    o.send("abc", server.page1)
+    o.send("def", $google.search(#page "動画", #lang "jp"))
+    .`きょうは晴れ`
+    .`明日は晴れ`
+    .<|
+      *`明後日`,
+      *`明々後日`
+      for {var i in 9.array()|
+        *$(i)
+      }
+     >
+}
+re
+<+div log|
+  <+div log1022|`アプリを起動しました。>
+  <div log1033|`アプリを更新しました。>
+<!div log>
+<div log|
