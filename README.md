@@ -20,12 +20,12 @@ server{|
   signal mousedown{var req, var res|
     var mouse = req.MouseDown.First()
     return ~<div log, #background "red"|
-              <+div log0001| log1 updated>
+              <+div log0001| `log1 updated>
             >~~
   }
   return ~<div log, #onclick mousedown|
-            <div log0001, #b "white"| log1>
-            <div log0002, #b "white"| log2>
+            <div log0001, #b "white"| `log1>
+            <div log0002, #b "white"| `log2>
           >~~
 }
 ```
