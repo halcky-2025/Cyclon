@@ -2,11 +2,11 @@ This repository is Cyclon, a programming language.
 It is named after the C language with the aim of becoming the eye of the typhoon.
 
 ```sample
-model Hello{|
-  String name
-  int count
-  void setCount{var c|
-    count = c
+model Hello{String n, int c|
+  String name = n
+  int count = c
+  void setCount{var c2|
+    count = c2
   }
   void aisatu{|
     for {var i = 0, i < 9, i = i + 1|
@@ -15,7 +15,7 @@ model Hello{|
   }
 }
 model.Store(Hello.new())
-var hs = model.Hello.Select()
+var hs = model.Hello.Select(bool { var h| h.count >= 0})
 server{|
   signal mousedown{var req, var res|
     var mouse = req.MouseDown.First()
