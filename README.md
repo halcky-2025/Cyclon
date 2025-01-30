@@ -1,7 +1,7 @@
 This repository is Cyclon, a programming language.
 It is named after the C language with the aim of becoming the eye of the typhoon.
 
-'''sample
+```sample
 model Hello{|
   String name
   int count
