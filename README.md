@@ -2,7 +2,7 @@ This repository is Cyclon, a programming language.
 It is named after the C language with the aim of becoming the eye of the typhoon.
 
 ```sample
-model Hello{String n, int c|
+gene Hello{String n, int c|
   String name = n
   int count = c
   void setCount{var c2|
@@ -14,8 +14,8 @@ model Hello{String n, int c|
     }
   }
 }
-model.Store(Hello.new())
-var hs = model.Hello.Select(bool { var h| h.count >= 0})
+gene.Store(Hello.new())
+var hs = gene.Hello.Select(bool { var h| h.count >= 0})
 server{|
   signal mousedown{var req, var res|
     var mouse = req.MouseDown.First()
