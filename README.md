@@ -14,7 +14,7 @@ model Hello{String n, int c|
     }
   }
 }
-model.Store(Hello.new())
+model.Store(Hello.new("halcky", 10.random()))
 var hs = model.Hello.Select(bool { var h| h.count >= 0})
 server{|
   signal mousedown{var req, var res|
