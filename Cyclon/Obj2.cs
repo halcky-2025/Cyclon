@@ -2431,7 +2431,54 @@ namespace Cyclon
         }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
         {
-            if (val2.type == ObjType.Word)
+            if (val2.type == ObjType.Dot)
+            {
+                n++;
+                val2 = primary.children[n];
+                if (val2.type == ObjType.Word)
+                {
+                    var word = val2 as Word;
+                    n++;
+                    val2 = primary.children[n];
+                    if (val2.type == ObjType.Dot)
+                    {
+                        var modelobj = local.get(word.name);
+                        n++;
+                        val2 = primary.children[n];
+                        if (val2.type == ObjType.Word)
+                        {
+                            var word2 = val2 as Word;
+                            n++;
+                            val2 = primary.children[n];
+                            if (val2.type == ObjType.Bracket)
+                            {
+                                var blk = val2.Clone().exe(local).Getter(local) as Block;
+                                if (word2.name == "First")
+                                {
+                                    return local.db.First(modelobj, local);
+                                }
+                                else if (word2.name == "Select")
+                                {
+                                    return local.db.Select(modelobj, local, (Function)blk.rets[0]);
+                                }
+                                else if (word2.name == "Sort")
+                                {
+                                    return local.db.Select(modelobj, local, (Function)blk.rets[0]);
+                                }
+                            }
+                        }
+                    }
+                    else if (word.name == "Store")
+                    {
+                        if (val2.type == ObjType.Bracket)
+                        {
+                            var blk = val2.Clone().exe(local).Getter(local);
+                            return local.db.Store((Val)val2, local);
+                        }
+                    }
+                }
+            }
+            else if (val2.type == ObjType.Word)
             {
                 var word = val2 as Word;
                 n++;
@@ -2581,6 +2628,18 @@ namespace Cyclon
             }
             return val;
         }
+        public Obj First(Object model, Local local)
+        {
+            List<Val> list;
+            if (stocks.ContainsKey(model))
+            {
+                return stocks[model].Last();
+            }
+            else
+            {
+                return new Null();
+            }
+        }
         public Obj Sort(Object model, Local local, Function func)
         {
             List<Val> list;
@@ -2594,7 +2653,7 @@ namespace Cyclon
             }
             return new Block(ObjType.Array) { rets = new List<Obj>(list) }.Sort(func, local);
         }
-        public void Store(Val val, Local local)
+        public Obj Store(Val val, Local local)
         {
             List<Val> list;
             if (stocks.ContainsKey(val.cls))
@@ -2616,6 +2675,7 @@ namespace Cyclon
             {
                 list[n] = val;
             }
+            return new VoiVal();
         }
     }
     class Gene : Obj

@@ -427,11 +427,11 @@ namespace Cyclon
             else if (select)
             {
                 var sel2 = local.selects[(local.seln + 1) % 2];
-                if (sel2.element == this) select = false;
+                if (sel2.state.elements.Last() == this) select = false;
             }
             else
             {
-                if (local.selects[0].element == this || local.selects[1].element == this)
+                if (local.selects[0].state.elements.Last() == this || local.selects[1].state.elements.Last() == this)
                 {
                     g.g.FillRectangle(Brushes.LightGray, new RectangleF(pos.X, pos.Y, 1, size2.Y));
                 }
@@ -484,11 +484,13 @@ namespace Cyclon
                 else if (select)
                 {
                     var sel2 = local.selects[(local.seln + 1) % 2];
-                    if (sel2.element == this)
+                    if (sel2.state.elements.Last() == this)
                     {
                         local.seln = 2;
                         select = false;
-                        local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                        var state = e.state.Clone();
+                        state.elements[state.elements.Count - 1] = this;
+                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                     }
                     else
                     {
@@ -513,11 +515,11 @@ namespace Cyclon
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        if (local.selects[i].element == this)
+                        if (local.selects[i].state.elements.Last() == this)
                         {
                             local.seln = i;
                             if (key != null) key(e, local);
-                            if (local.selects[(i + 1) % 2].element == this)
+                            if (local.selects[(i + 1) % 2].state.elements.Last() == this)
                             {
                                 local.seln = 2;
                                 switch (e.key)
@@ -529,7 +531,9 @@ namespace Cyclon
                                         var kaigyou2 = line2.childend.before;
                                         line2.childend.RemoveBefore();
                                         line.childend.Next(kaigyou2);
-                                        local.selects[0] = local.selects[1] = new Select() { element = kaigyou2, n = 0 };
+                                        var state = e.state.Clone();
+                                        state.elements[state.elements.Count - 1] = kaigyou2;
+                                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                                         line2.childend.Before(kaigyou);
                                         line2.Next(line);
                                         line.childstart = line.childend.next;
@@ -554,7 +558,9 @@ namespace Cyclon
                                                 var start = line3.childend.next;
                                                 line5.childend.RemoveBefore();
                                                 line3.FirstRange(line5.childend.next);
-                                                local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                                                var state2 = e.state.Clone();
+                                                state2.elements[state2.elements.Count - 1] = this;
+                                                local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                 line5.next.RemoveBefore();
                                                 e.state.Update();
                                                 e.state.elements[e.state.elements.Count - 1] = next;
@@ -568,7 +574,9 @@ namespace Cyclon
                                             {
                                                 var letter = before as Letter;
                                                 letter.text = letter.text.Substring(0, letter.text.Length - 1);
-                                                local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                                                var state2 = e.state.Clone();
+                                                state2.elements[state2.elements.Count - 1] = this;
+                                                local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                 e.state.Update();
                                                 e.state.elements[e.state.elements.Count - 1] = next;
                                                 break;
@@ -591,12 +599,16 @@ namespace Cyclon
                                         line4.AddRange(line7.childend.next);
                                         line7.next.RemoveBefore();
                                         e.state.Update();
-                                        local.selects[0] = local.selects[1] = new Select() { element = start2, n = 0 };
+                                        var state3 = e.state.Clone();
+                                        state3.elements[state3.elements.Count - 1] = start2;
+                                        local.selects[0] = local.selects[1] = new Select() { state = state3, n = 0 };
                                         e.state.elements[e.state.elements.Count - 1] = start2;
                                         return 0;
                                     case Keys.None:
                                         Before(new Letter() { text = e.text });
-                                        local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                                        var state4 = e.state.Clone();
+                                        state4.elements[state4.elements.Count - 1] = this;
+                                        local.selects[0] = local.selects[1] = new Select() { state = state4, n = 0 };
                                         e.state.elements[e.state.elements.Count - 1] = next;
                                         e.state.Update();
                                         return 1;
@@ -728,7 +740,7 @@ namespace Cyclon
             {
                 if (select)
                 {
-                    if (local.selects[(local.seln + 1) % 2].element == this)
+                    if (local.selects[(local.seln + 1) % 2].state.elements.Last() == this)
                     {
                         g.g.FillRectangle(Brushes.LightGray, new RectangleF(g.x + g.px, g.y + g.py, 7.5f * local.selects[(local.seln + 1) % 2].n + 1, size2.Y));
                         select = false;
@@ -739,9 +751,9 @@ namespace Cyclon
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        if (local.selects[i].element == this)
+                        if (local.selects[i].state.elements.Last() == this)
                         {
-                            if (local.selects[(i + 1) % 2].element == this)
+                            if (local.selects[(i + 1) % 2].state.elements.Last() == this)
                             {
                                 int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
                                 if (n1 > n2)
@@ -868,10 +880,12 @@ namespace Cyclon
                 else if (select)
                 {
                     var sel2 = local.selects[(local.seln + 1) % 2];
-                    if (sel2.element == this)
+                    if (sel2.state.elements.Last() == this)
                     {
                         local.seln = 2;
-                        local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                        var state = e.state.Clone();
+                        state.elements[state.elements.Count - 1] = this;
+                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                         text = text.Substring(sel2.n);
                         select = false;
                         e.state.elements[e.state.elements.Count - 1] = next;
@@ -888,11 +902,11 @@ namespace Cyclon
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        if (local.selects[i].element == this)
+                        if (local.selects[i].state.elements.Last() == this)
                         {
                             local.seln = i;
                             if (key != null) key(e, local);
-                            if (local.selects[(i + 1) % 2].element == this)
+                            if (local.selects[(i + 1) % 2].state.elements.Last() == this)
                             {
                                 local.seln = 2;
                                 int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
@@ -913,7 +927,9 @@ namespace Cyclon
                                         this.next = line4.childend;
                                         line4.childend.before = this;
                                         line4.childend.Before(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou });
-                                        local.selects[0] = local.selects[1] = new Select() { element = line3.childend.next, n = 0 };
+                                        var state = e.state.Clone();
+                                        state.elements[state.elements.Count - 1] = line3.childend.next;
+                                        local.selects[0] = local.selects[1] = new Select() { state = state , n = 0 };
                                         line4.Next(line3);
                                         line3.childstart = line3.childend.next;
                                         break;
@@ -938,7 +954,9 @@ namespace Cyclon
                                                     {
                                                         line2.childend.RemoveBefore();
                                                         line.FirstRange(line2.childend.next);
-                                                        local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                                                        var state2 = e.state.Clone();
+                                                        state2.elements[state2.elements.Count - 1] = this;
+                                                        local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                         e.state.Update();
                                                         line2.next.RemoveBefore();
                                                         e.state.elements[e.state.elements.Count - 1] = next;
@@ -960,7 +978,9 @@ namespace Cyclon
                                             else
                                             {
                                                 text = text.Substring(0, n1 - 1) + text.Substring(n1, text.Length - n1 - 1);
-                                                local.selects[0] = local.selects[1] = new Select() { element = this, n = n1 - 1 };
+                                                var state3 = e.state.Clone();
+                                                state3.elements[state3.elements.Count - 1] = this;
+                                                local.selects[0] = local.selects[1] = new Select() { state = state3, n = n1 - 1 };
                                                 break;
                                             }
                                         }
@@ -974,7 +994,9 @@ namespace Cyclon
                                         else goto case Keys.None;
                                     case Keys.None:
                                         text = text.Substring(0, n1) + e.text + text.Substring(n2, text.Length - n2);
-                                        local.selects[0] = local.selects[1] = new Select() { element = this, n = n1 + e.text.Length };
+                                        var state4 = e.state.Clone();
+                                        state4.elements[state4.elements.Count - 1] = this;
+                                        local.selects[0] = local.selects[1] = new Select() { state = state4, n = n1 + e.text.Length };
                                         break;
                                 }
                                 e.state.Update();
@@ -1068,7 +1090,7 @@ namespace Cyclon
             }
             if (select)
             {
-                if (local.selects[(local.seln + 1) % 2].element == this)
+                if (local.selects[(local.seln + 1) % 2].state.elements.Last() == this)
                 {
                     g.g.FillRectangle(Brushes.LightGray, new RectangleF(g.x + g.px, g.y + g.py, 7.5f * local.selects[(local.seln + 1) % 2].n + 1, size2.Y));
                     select = false;
@@ -1079,9 +1101,9 @@ namespace Cyclon
             {
                 for (var i = 0; i < 2; i++)
                 {
-                    if (local.selects[i].element == this)
+                    if (local.selects[i].state.elements.Last() == this)
                     {
-                        if (local.selects[(i + 1) % 2].element == this)
+                        if (local.selects[(i + 1) % 2].state.elements.Last() == this)
                         {
                             int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
                             if (n1 > n2)
@@ -1159,10 +1181,12 @@ namespace Cyclon
             else if (select)
             {
                 var sel2 = local.selects[(local.seln + 1) % 2];
-                if (sel2.element == this)
+                if (sel2.state.elements.Last() == this)
                 {
                     local.seln = 2;
-                    local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                    var state = e.state.Clone();
+                    state.elements[state.elements.Count - 1] = this;
+                    local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                     text = text.Substring(sel2.n);
                     select = false;
                     e.state.elements[e.state.elements.Count - 1] = next;
@@ -1178,11 +1202,11 @@ namespace Cyclon
             else {
                 for (var i = 0; i < 2; i++)
                 {
-                    if (local.selects[i].element == this)
+                    if (local.selects[i].state.elements.Last() == this)
                     {
                         local.seln = i;
                         if (key != null) key(e, local);
-                        if (local.selects[(i + 1) % 2].element == this)
+                        if (local.selects[(i + 1) % 2].state.elements.Last() == this)
                         {
                             local.seln = 2;
                             int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
@@ -1203,7 +1227,9 @@ namespace Cyclon
                                     this.next = line4.childend;
                                     line4.childend.before = this;
                                     line4.childend.Before(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou });
-                                    local.selects[0] = local.selects[1] = new Select() { element = line3.childend.next, n = 0 };
+                                    var state = e.state.Clone();
+                                    state.elements[state.elements.Count - 1] = line3.childend.next;
+                                    local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                                     line4.Next(line3);
                                     line3.childstart = line3.childend.next;
                                     break;
@@ -1228,7 +1254,9 @@ namespace Cyclon
                                                 {
                                                     line2.childend.RemoveBefore();
                                                     line.FirstRange(line2.childend.next);
-                                                    local.selects[0] = local.selects[1] = new Select() { element = this, n = 0 };
+                                                    var state2 = e.state.Clone();
+                                                    state2.elements[state2.elements.Count - 1] = this;
+                                                    local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                     e.state.Update();
                                                     line2.next.RemoveBefore();
                                                     e.state.elements[e.state.elements.Count - 1] = next;
@@ -1250,7 +1278,9 @@ namespace Cyclon
                                         else
                                         {
                                             text = text.Substring(0, n1 - 1) + text.Substring(n1, text.Length - n1 - 1);
-                                            local.selects[0] = local.selects[1] = new Select() { element = this, n = n1 - 1 };
+                                            var state2 = e.state.Clone();
+                                            state2.elements[state2.elements.Count - 1] = this;
+                                            local.selects[0] = local.selects[1] = new Select() { state = state2, n = n1 - 1 };
                                             break;
                                         }
                                     }
@@ -1264,7 +1294,9 @@ namespace Cyclon
                                     else goto case Keys.None;
                                 case Keys.None:
                                     text = text.Substring(0, n1) + e.text + text.Substring(n2, text.Length - n2);
-                                    local.selects[0] = local.selects[1] = new Select() { element = this, n = n1 + e.text.Length };
+                                    var state3 = e.state.Clone();
+                                    state3.elements[state3.elements.Count - 1] = this;
+                                    local.selects[0] = local.selects[1] = new Select() { state = state3, n = n1 + e.text.Length };
                                     break;
                             }
                             e.state.Update();

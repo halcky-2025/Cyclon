@@ -28,11 +28,6 @@ namespace Cyclon
     {
         Auto, Break, Limit, Scroll
     }
-    class CloneElement : Element
-    {
-        Element element;
-        int fromn, ton;
-    }
     class EndElement : Element
     {
         public EndElement(Element parent) : base(parent)
@@ -242,17 +237,19 @@ namespace Cyclon
             if (!select)
             {
                 var elem = this;
+                var state = e.state.Clone();
             head:
                 elem = elem.childend.before;
+                state.elements.Add(elem);
                 if (elem.single)
                 {
                     if (e.call == MouseCall.MouseDown)
                     {
-                        local.selects[0] = local.selects[1] = new Select() { element = elem, n = 0 };
+                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                     }
                     else
                     {
-                        local.selects[1] = new Select() { element = elem, n = 0 };
+                        local.selects[1] = new Select() { state = state, n = 0 };
                     }
                 }
                 else goto head;
@@ -302,9 +299,9 @@ namespace Cyclon
     class State
     {
         public List<Element> elements = new List<Element>();
-        public List<int> ns = new List<int>();
         public Element element = new Letter() { type = LetterType.None };
         public List<Element> histories = new List<Element>();
+        public int n = 0;
         public void plus(int n)
         {
             var l1 = element as Letter;
@@ -370,6 +367,12 @@ namespace Cyclon
                 elements[i].recompile = true;
             }
         }
+        public State Clone()
+        {
+            var state = new State();
+            for (var i = 0; i < elements.Count; i++) state.elements.Add(elements[i]);
+            return state;
+        }
     }
     class Measure {
         public float x, y;
@@ -406,7 +409,7 @@ namespace Cyclon
     }
     class Select
     {
-        public Element element;
+        public State state;
         public int n;
     }
     class Line : Element
@@ -436,11 +439,11 @@ namespace Cyclon
                         {
                             var letter = element as Letter;
                             text += letter.text;
-                            if (letter == local.selects[0].element)
+                            if (letter == local.selects[0].state.elements.Last())
                             {
                                 n1 = n + local.selects[0].n;
                             }
-                            if (letter == local.selects[1].element)
+                            if (letter == local.selects[1].state.elements.Last())
                             {
                                 n2 = n + local.selects[1].n;
                             }
@@ -459,7 +462,7 @@ namespace Cyclon
                             n1 -= letter.text.Length;
                             if (n1 < 0)
                             {
-                                local.selects[0].element = letter;
+                                local.selects[0].state.elements[local.selects[0].state.elements.Count - 1] = letter;
                                 local.selects[0].n = letter.text.Length + n1;
                                 break;
                             }
@@ -473,7 +476,7 @@ namespace Cyclon
                             n2 -= letter.text.Length;
                             if (n2 < 0)
                             {
-                                local.selects[1].element = letter;
+                                local.selects[1].state.elements[local.selects[1].state.elements.Count - 1] = letter;
                                 local.selects[1].n = letter.text.Length + n2;
                                 break;
                             }
@@ -536,13 +539,16 @@ namespace Cyclon
             if (mouse != null) mouse(e, local.local);
             if (e.x < childstart.pos.X)
             {
+                var state = e.state.Clone();
+                state.elements.Add(childstart);
                 if (e.call == MouseCall.MouseDown)
                 {
-                    local.selects[0] = local.selects[1] = new Select() { element = childstart, n = 0 };
+                    local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                 }
                 else
                 {
-                    local.selects[1] = new Select() { element = childstart, n = 0 };
+                    state.elements.Add(childstart);
+                    local.selects[1] = new Select() { state = state, n = 0 };
                 }
                 return 0;
             }
@@ -562,26 +568,30 @@ namespace Cyclon
                     }
                     e.state.elements.RemoveAt(e.state.elements.Count - 1);
                 }
+                var state = e.state.Clone();
                 if (rets.Count > 0)
                 {
                     if (e.call == MouseCall.MouseDown)
                     {
-                        local.selects[0] = local.selects[1] = new Select() { element = rets[0], n = ns[0] };
+                        state.elements.Add(rets[0]);
+                        local.selects[0] = local.selects[1] = new Select() { state = state, n = ns[0] };
                     }
                     else
                     {
-                        local.selects[1] = new Select() { element = rets.Last(), n = ns.Last() };
+                        state.elements.Add(rets.Last());
+                        local.selects[1] = new Select() { state = state, n = ns.Last() };
                     }
                     return 0;
                 }
                 if (element.type == LetterType.ElemEnd) element = element.before;
+                state.elements.Add(element);
                 if (e.call == MouseCall.MouseDown)
                 {
-                    local.selects[0] = local.selects[1] = new Select() { element = element, n = 0 };
+                    local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                 }
                 else
                 {
-                    local.selects[1] = new Select() { element = element, n = 0 };
+                    local.selects[1] = new Select() { state = state, n = 0 };
                 }
                 return 0;
             }
@@ -591,7 +601,7 @@ namespace Cyclon
             if (select)
             {
                 var sel2 = local.selects[(local.seln + 1) % 2];
-                if (sel2.element == childstart && sel2.n == 0)
+                if (sel2.state.elements.Last() == childstart && sel2.n == 0)
                 {
                     select = false;
                 }
@@ -614,7 +624,6 @@ namespace Cyclon
         public override void nextplus(State state)
         {
             state.elements.RemoveAt(state.elements.Count - 1);
-            state.ns.RemoveAt(state.ns.Count - 1);
         }
         public override int Key(KeyEvent e, Local local, ref bool select)
         {
@@ -624,200 +633,5 @@ namespace Cyclon
         {
             get { return ""; }
         }
-    }
-    class Div : Element
-    {
-        public String id;
-        public String sop;
-        public Dictionary<String, Obj> statuses = new Dictionary<string, Obj>();
-        public Div()
-        {
-            type = LetterType.Div;
-        }
-        public void SetStatus(Div divid)
-        {
-            foreach(var kv in divid.statuses)
-            {
-                if (statuses[kv.Key] == null) statuses[kv.Key] = kv.Value;
-            }
-        }
-        public override void Draw(Graphic g, Local local, ref bool select)
-        {
-            base.Draw(g, local, ref select);
-        }
-        public override Element Measure(Measure m, Local local, ref int order)
-        {
-            if (update)
-            {
-
-                if (statuses.ContainsKey("key")) key = KeyExe;
-                if (statuses.ContainsKey("mouse")) mouse = MouseExe;
-            }
-            return base.Measure(m, local, ref order);
-        }
-
-        private bool MouseExe(MouseEvent mouse, Local local)
-        {
-            var m = statuses["mouse"] as SignalFunction;
-            var req = new ConnectStock();
-            req.Store(new MouseEventObj(mouse, local) { cls = local.MouseEvent}, local);
-            var res = new ConnectStock();
-            m.basicexe(req, res, local);
-            return false;
-        }
-
-        public bool KeyExe(KeyEvent key, Local local)
-        {
-            var k = statuses["key"] as SignalFunction;
-            var req = new ConnectStock();
-            req.Store(new KeyEventObj(key, local) { cls = local.KeyEvent}, local);
-            var res = new ConnectStock();
-            k.basicexe(req, res, local);
-            return false;
-        }
-    }
-    class KeyEventObj: Val
-    {
-        public KeyEvent key;
-        public KeyEventObj(KeyEvent key, Local local) : base(ObjType.KeyEventObj)
-        {
-            vmap = new Dictionary<string, Obj>();
-            vmap["id"] = new Variable(local.Int) { value = new Number(0) { cls = local.Int } };
-            this.key = key;
-        }
-        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
-        {
-            if (val2.type == ObjType.Dot)
-            {
-                n++;
-                val2 = primary.children[n];
-                if (val2.type == ObjType.Word)
-                {
-                    var word = val2 as Word;
-                    n++;
-                    if (word.name == "action")
-                    {
-                        return new Number((int)key.call) { cls = local.Int };
-                    }
-                    else if (word.name == "text")
-                    {
-                        return new StrObj(key.text) { cls = local.Str };
-                    }
-                }
-            }
-            throw new Exception();
-        }
-        public override Obj exep(ref int n, Local local, Primary primary)
-        {
-            return this;
-        }
-    }
-    class MouseEventObj : Val
-    {
-        public MouseEvent mouse;
-        public MouseEventObj(MouseEvent mouse, Local local) : base(ObjType.MouseEventObj)
-        {
-            vmap = new Dictionary<string, Obj>();
-            vmap["id"] = new Variable(local.Int) { value = new Number(0) { cls = local.Int } };
-            this.mouse = mouse;
-        }
-        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
-        {
-            if (val2.type == ObjType.Dot)
-            {
-                n++;
-                val2 = primary.children[n];
-                if (val2.type == ObjType.Word)
-                {
-                    var word = val2 as Word;
-                    n++;
-                    if (word.name == "action")
-                    {
-                        return new Number((int)mouse.call){ cls = local.Int };
-                    }
-                    else if (word.name == "x")
-                    {
-                        return new Number(mouse.x) { cls = local.Int };
-                    }
-                    else if (word.name == "y")
-                    {
-                        return new Number(mouse.x) { cls = local.Int };
-                    }
-                }
-            }
-            throw new Exception();
-        }
-        public override Obj exep(ref int n, Local local, Primary primary)
-        {
-            return this;
-        }
-    }
-    class Sheet: Element
-    {
-        public Dictionary<int, RowData> rowdatas = new Dictionary<int, RowData>();
-        public Dictionary<int, ColData> coldatas = new Dictionary<int, ColData>();
-        public Dictionary<int, Dictionary<int, Cell>> cells = new Dictionary<int, Dictionary<int, Cell>>();
-        public void add(int x, int y, Element element)
-        {
-            if (!cells.ContainsKey(y))
-            {
-                cells[y] = new Dictionary<int, Cell>();
-            }
-            var row = cells[y];
-            if (!row.ContainsKey(x))
-            {
-                row[x] = new Cell();
-            }
-            row[x].add(element);
-        }
-        public override Element Measure(Measure m, Local local, ref int order)
-        {
-            cells = cells.OrderBy(x => x.Key).ToDictionary();
-            var height = 0;
-            foreach(var kv in cells)
-            {
-                cells[kv.Key] = kv.Value.OrderBy(x => x.Key).ToDictionary();
-                var n = 0;
-                var width = 0f;
-                foreach(var kv2 in cells[kv.Key])
-                {
-                    for(; n < kv2.Key; n++)
-                    {
-                        if (coldatas.ContainsKey(n))
-                        {
-                            width += coldatas[n].width;
-                        }
-                        else
-                        {
-                            width += 45f;
-                        }
-                    }
-                }
-            }
-            return base.Measure(m, local, ref order);
-        }
-        public override void Draw(Graphic g, Local local, ref bool select)
-        {
-            base.Draw(g, local, ref select);
-        }
-        public override int Mouse(MouseEvent e, Local local)
-        {
-            return base.Mouse(e, local);
-        }
-        public override int Key(KeyEvent e, Local local, ref bool select)
-        {
-            return base.Key(e, local, ref select);
-        }
-    }
-    class RowData: Line
-    {
-    }
-    class ColData
-    {
-        public float width;
-    }
-    class Cell : Element
-    {
-
     }
 }
