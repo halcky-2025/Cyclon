@@ -213,6 +213,8 @@ namespace Cyclon
         public Local local;
         public Local()
         {
+            selects[0].state = selects[1].state = new State();
+            selects[0].state.elements.Add(new EndElement(null));
             Float.extends.Add(Int);
             operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.Equal, LetterType.Colon, LetterType.In} });
             operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.MoreEqual, LetterType.MoreThan, LetterType.LessEqual, LetterType.LessThan, LetterType.EqualEqual, LetterType.NotEqual } });
@@ -484,7 +486,7 @@ namespace Cyclon
                 else if (select)
                 {
                     var sel2 = local.selects[(local.seln + 1) % 2];
-                    if (sel2.state.elements.Last() == this)
+                    if (sel2.state.elements[sel2.state.n] == this)
                     {
                         local.seln = 2;
                         select = false;
@@ -515,11 +517,11 @@ namespace Cyclon
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        if (local.selects[i].state.elements.Last() == this)
+                        if (local.selects[i].state.elements[local.selects[i].state.n] == this)
                         {
                             local.seln = i;
                             if (key != null) key(e, local);
-                            if (local.selects[(i + 1) % 2].state.elements.Last() == this)
+                            if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
                             {
                                 local.seln = 2;
                                 switch (e.key)
@@ -880,7 +882,7 @@ namespace Cyclon
                 else if (select)
                 {
                     var sel2 = local.selects[(local.seln + 1) % 2];
-                    if (sel2.state.elements.Last() == this)
+                    if (sel2.state.elements[sel2.state.n] == this)
                     {
                         local.seln = 2;
                         var state = e.state.Clone();
@@ -902,11 +904,11 @@ namespace Cyclon
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        if (local.selects[i].state.elements.Last() == this)
+                        if (local.selects[i].state.elements[local.selects[i].state.n] == this)
                         {
                             local.seln = i;
                             if (key != null) key(e, local);
-                            if (local.selects[(i + 1) % 2].state.elements.Last() == this)
+                            if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
                             {
                                 local.seln = 2;
                                 int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
@@ -1181,7 +1183,7 @@ namespace Cyclon
             else if (select)
             {
                 var sel2 = local.selects[(local.seln + 1) % 2];
-                if (sel2.state.elements.Last() == this)
+                if (sel2.state.elements[sel2.state.n] == this)
                 {
                     local.seln = 2;
                     var state = e.state.Clone();
@@ -1202,11 +1204,11 @@ namespace Cyclon
             else {
                 for (var i = 0; i < 2; i++)
                 {
-                    if (local.selects[i].state.elements.Last() == this)
+                    if (local.selects[i].state.elements[local.selects[i].state.n] == this)
                     {
                         local.seln = i;
                         if (key != null) key(e, local);
-                        if (local.selects[(i + 1) % 2].state.elements.Last() == this)
+                        if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
                         {
                             local.seln = 2;
                             int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;

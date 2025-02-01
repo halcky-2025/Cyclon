@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Cyclon
 {
@@ -153,7 +154,7 @@ namespace Cyclon
                     }
                     else g2.Clear(Color.Transparent);
                     var g3 = new Graphic() { g = g2, font = g.font };
-                    for (var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
+                    for (var elem = childend.next; elem != childend; elem = elem.next)
                     {
                         elem.Draw(g3, local, ref select);
                     }
@@ -260,9 +261,24 @@ namespace Cyclon
         {
             if (select) select = false;
             e.state.elements.Add(childend.next);
+            var go = false;
             for (var element = e.state.elements.Last(); element != childend; element = e.state.elements[e.state.elements.Count - 1] = e.state.elements.Last().next)
             {
-                element.Key(e, local, ref select);
+                if (local.selects[0].state.elements[local.selects[0].state.n] == element)
+                {
+                    local.selects[0].state.n++;
+                    go = true;
+                }
+                if (local.selects[1].state.elements[local.selects[1].state.n] == element)
+                {
+                    local.selects[1].state.n++;
+                    go = true;
+                }
+                if (select || go)
+                {
+                    element.Key(e, local, ref select);
+                    go = false;
+                }
             }
             e.state.elements.RemoveAt(e.state.elements.Count - 1);
             return 0;
@@ -608,6 +624,7 @@ namespace Cyclon
                 else recompile = update = true;
             }
             e.state.elements.Add(childstart);
+            var go = false;
             for( ; e.state.elements.Last().type != LetterType.ElemEnd;)
             {
                 var ret = e.state.elements.Last().Key(e, local, ref select);

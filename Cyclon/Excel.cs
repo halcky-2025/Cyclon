@@ -330,19 +330,132 @@ namespace Cyclon
         }
         public override Element Measure(Measure m, Local local, ref int order)
         {
-            return base.Measure(m, local, ref order);
+            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel };
+            if (font != null) measure.font = font;
+            var font0 = measure.font;
+            measure.x += margins[1] + paddings[1];
+            measure.y += margins[0] + paddings[0];
+            measure.sizex = size.X - margins[3] - paddings[3];
+            measure.sizey = size.Y - margins[2] - paddings[2];
+            for (var element = childend.next; element != childend; element = element.next)
+            {
+                measure.py += element.size2.Y;
+                if (measure.sizex < element.size2.X) measure.sizex = element.size2.X;
+            }
+            pos = new Point((int)m.x, (int)m.y);
+            size2 = new Point((int)measure.sizex + margins[3] + paddings[3] + 1, (int)measure.py + margins[2] + paddings[2] + 1);
+            update = false;
+            if (m.sizex < measure.sizex) m.sizex = measure.sizex;
+            m.py += measure.py + margins[2] + paddings[2] + 1;
+            return null;
         }
         public override void Draw(Graphic g, Local local, ref bool select)
         {
-            base.Draw(g, local, ref select);
+            g.x += margins[1] + paddings[1];
+            g.y += margins[0] + paddings[0];
+            using (Bitmap bitmap = new Bitmap((int)size2.X, (int)size2.Y))
+            {
+                using (Graphics g2 = Graphics.FromImage(bitmap))
+                {
+                    if (background != null)
+                    {
+                        g2.FillRectangle(background, new RectangleF(0, 0, (int)size2.X, (int)size2.Y));
+                    }
+                    else g2.Clear(Color.Transparent);
+                    var g3 = new Graphic() { g = g2, font = g.font };
+                    for (var elem = childstart; elem != childend; elem = elem.next)
+                    {
+                        elem.Draw(g3, local, ref select);
+                    }
+                }
+                if (xtype == SizeType.Auto || xtype == SizeType.Break)
+                {
+                    if (ytype == SizeType.Auto)
+                    {
+                        g.g.DrawImage(bitmap, new PointF(g.x + g.px, g.y + g.py));
+                    }
+                    else
+                    {
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, scroll.Y, bitmap.Width, size.Y), GraphicsUnit.Pixel);
+                    }
+                }
+                else
+                {
+                    if (ytype == SizeType.Auto)
+                    {
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, bitmap.Height), new RectangleF(scroll.X, 0, size.X, bitmap.Height), GraphicsUnit.Pixel);
+                    }
+                    else
+                    {
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(scroll.X, scroll.Y, size.X, size.Y), GraphicsUnit.Pixel);
+                    }
+                }
+            }
+            g.py += size2.Y;
         }
         public override int Mouse(MouseEvent e, Local local)
         {
-            return base.Mouse(e, local);
+            var ret = -1;
+            var select = false;
+            if (mouse != null) mouse(e, local.local);
+            for (var element = childstart; element != childend; element = element.next)
+            {
+                if (element.pos.Y <= e.y && e.y < element.pos.Y + element.size2.Y)
+                {
+                    select = true;
+                    e.state.elements.Add(element);
+                    ret = element.Mouse(e, local);
+                    e.state.elements.RemoveAt(e.state.elements.Count - 1);
+                    return 0;
+                }
+            }
+            if (!select)
+            {
+                Element elem = this;
+                var state = e.state.Clone();
+            head:
+                elem = elem.childend.before;
+                state.elements.Add(elem);
+                if (elem.single)
+                {
+                    if (e.call == MouseCall.MouseDown)
+                    {
+                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
+                    }
+                    else
+                    {
+                        local.selects[1] = new Select() { state = state, n = 0 };
+                    }
+                }
+                else goto head;
+            }
+            return -1;
         }
         public override int Key(KeyEvent e, Local local, ref bool select)
         {
-            return base.Key(e, local, ref select);
+            if (select) select = false;
+            e.state.elements.Add(childend.next);
+            var go = false;
+            for (var element = childstart; element != childend; element = e.state.elements[e.state.elements.Count - 1] = e.state.elements.Last().next)
+            {
+                if (local.selects[0].state.elements[local.selects[0].state.n] == element)
+                {
+                    local.selects[0].state.n++;
+                    go = true;
+                }
+                if (local.selects[1].state.elements[local.selects[1].state.n] == element)
+                {
+                    local.selects[1].state.n++;
+                    go = true;
+                }
+                if (select || go)
+                {
+                    element.Key(e, local, ref select);
+                    go = false;
+                }
+            }
+            e.state.elements.RemoveAt(e.state.elements.Count - 1);
+            return 0;
         }
     }
 }

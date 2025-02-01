@@ -138,6 +138,7 @@ namespace Cyclon
                 case Keys.Back:
                     e.Handled = true;
                     local.seln = -1;
+                    local.selects[0].state.n = local.selects[1].state.n = 0;
                     local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = ""}, local, ref select);
                     input = true;
                     Invalidate();
@@ -145,6 +146,7 @@ namespace Cyclon
                 case Keys.Delete:
                     e.Handled = true;
                     local.seln = -1;
+                    local.selects[0].state.n = local.selects[1].state.n = 0;
                     local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = ""}, local, ref select);
                     input = true;
                     Invalidate();
@@ -152,6 +154,7 @@ namespace Cyclon
                 case Keys.Enter:
                     e.Handled = true;
                     local.seln = -1;
+                    local.selects[0].state.n = local.selects[1].state.n = 0;
                     local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = "" }, local, ref select);
                     input = true;
                     Invalidate();
@@ -190,6 +193,7 @@ namespace Cyclon
             bool select = false;
             form.console.Text += e.KeyChar;
             local.seln = -1;
+            local.selects[0].state.n = local.selects[1].state.n = 0;
             local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = e.KeyChar.ToString(), key = Keys.None }, local, ref select);
             input = true;
             e.Handled = true;
@@ -203,6 +207,7 @@ namespace Cyclon
             bool select = false;
             form.console.Text += ja.Substring(ja.Length / 2);
             local.seln = -1;
+            local.selects[0].state.n = local.selects[1].state.n = 0;
             local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = ja.Substring(ja.Length / 2), key = Keys.None}, local, ref select);
             ja = "";
             input = true;
@@ -214,13 +219,15 @@ namespace Cyclon
         {
             base.OnMouseDown(e);
             this.Focus();
-            local.Mouse(new MouseEvent() { call = MouseCall.MouseDown, x = e.X, y = e.Y, panel = this }, local);
+            var mouse = new MouseEvent() { call = MouseCall.MouseDown, x = e.X, y = e.Y, panel = this };
+            local.Mouse(mouse, local);
             local.comlet = null;
             Invalidate();
         }
         protected override void OnMouseUp(MouseEventArgs e)
         {
-            local.Mouse(new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this }, local);
+            var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
+            local.Mouse(mouse, local);
             local.comlet = null;
             Invalidate();
         }
@@ -229,7 +236,8 @@ namespace Cyclon
             base.OnMouseMove(e);
             if (Control.MouseButtons == MouseButtons.Left)
             {
-                local.Mouse(new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this }, local);
+                var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
+                local.Mouse(mouse, local);
                 local.comlet = null;
                 Invalidate();
             }
