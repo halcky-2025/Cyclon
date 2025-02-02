@@ -168,17 +168,32 @@ namespace Cyclon
                     else
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, scroll.Y, bitmap.Width, size.Y), GraphicsUnit.Pixel);
+                        if (ytype == SizeType.Scroll)
+                        {
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                        }
                     }
                 }
                 else
                 {
-                    if (ytype == SizeType.Auto)
+                    if (ytype == SizeType.Auto || ytype == SizeType.Break)
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, bitmap.Height), new RectangleF(scroll.X, 0, size.X, bitmap.Height), GraphicsUnit.Pixel);
                     }
                     else
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(scroll.X, scroll.Y, size.X, size.Y), GraphicsUnit.Pixel);
+                        if (ytype == SizeType.Scroll)
+                        {
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                        }
+                    }
+                    if (xtype == SizeType.Scroll)
+                    {
+                        g.g.FillRectangle(Brushes.LightGray, new RectangleF(0, size.Y - 10, size.X, 10));
+                        g.g.FillRectangle(Brushes.Gray, new RectangleF(scroll.X / size2.X * size.X, size.Y - 10, Math.Min(size.X / size2.X * size.X, size.X - scroll.X / size2.X * size.X), 10));
                     }
                 }
             }
@@ -214,6 +229,8 @@ namespace Cyclon
             }
             pos = new Point((int)m.x, (int)m.y);
             size2 = new Point((int)measure.sizex + margins[3] + paddings[3] + 1, (int)measure.py + margins[2] + paddings[2] + 1);
+            if (xtype == SizeType.Scroll) size2.Y += 10;
+            if (ytype == SizeType.Scroll) size2.X += 10;
             update = false;
             if (m.sizex < measure.sizex) m.sizex = measure.sizex;
             m.py += measure.py + margins[2] + paddings[2] + 1; 
@@ -221,6 +238,52 @@ namespace Cyclon
         }
         public virtual int Mouse(MouseEvent e, Local local)
         {
+            if (xtype == SizeType.Scroll)
+            {
+                if (e.y >= size.Y - 10)
+                {
+                    if (scroll.X / size2.X * size.X <= e.x && e.x < (scroll.X + size.X) / size2.X * size.X)
+                    {
+                        var x = scroll.X;
+                        local.panel.capture = new Capture()
+                        {
+                            down = e,
+                            capture = (c, e) =>
+                        {
+                            scroll.X = x + (e.x - c.down.x) * size2.X / size.X;
+                            if (scroll.X > size2.X - size.X) scroll.X = size2.X - size.X;
+                            if (scroll.X < 0) scroll.X = 0;
+                            return true;
+                        }
+                        };
+                    }
+                    Form1.SetCapture(local.panel.Handle);
+                    return -1;
+                }
+            }
+            if (ytype == SizeType.Scroll)
+            {
+                if (e.x >= size.X - 10 && e.y <= size.Y - 10)
+                {
+                    if (scroll.Y / size2.Y * (size.Y - 12) <= e.y && e.y < (scroll.Y + size.Y) / size2.Y * (size.Y - 12))
+                    {
+                        var y = scroll.Y;
+                        local.panel.capture = new Capture()
+                        {
+                            down = e,
+                            capture = (c, e) =>
+                            {
+                                scroll.Y = y + (e.y - c.down.y) * size2.Y / size.Y;
+                                if (scroll.Y > size2.Y - size.Y) scroll.Y = size2.Y - size.Y;
+                                if (scroll.Y < 0) scroll.Y = 0;
+                                return true;
+                            }
+                        };
+                    }
+                    Form1.SetCapture(local.panel.Handle);
+                    return -1;
+                }
+            }
             var ret = -1;
             var select = false;
             if (mouse != null) mouse(e, local.local);
@@ -408,6 +471,11 @@ namespace Cyclon
         public float x, y;
         public float px, py;
         public float h;
+    }
+    class Capture
+    {
+        public MouseEvent down;
+        public Func<Capture, MouseEvent, bool> capture;
     }
     class MouseEvent
     {

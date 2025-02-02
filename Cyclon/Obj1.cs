@@ -150,12 +150,16 @@ namespace Cyclon
                     case ".":
                         op = singleop as SingleOp; break;
                     case "*":
+                        op = singleop as SingleOp;
+                        if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
+                        break;
+                    case ">>":
                         op = singleop as SingleOp; break;
                     default:
                         val1 = val1.ope(str, local, null); break;
                 }
             }
-            if (local.comments.Count > 0) local.comments.Last().Single(op);
+            if (local.comments.Count > 0) local.comments.Last().Single(op, local);
             return val1;
         }
     }
@@ -491,6 +495,7 @@ namespace Cyclon
                         local.seln = 2;
                         select = false;
                         var state = e.state.Clone();
+                        state.elements[state.elements.Count - 2] = this.parent;
                         state.elements[state.elements.Count - 1] = this;
                         local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                     }
@@ -534,6 +539,7 @@ namespace Cyclon
                                         line2.childend.RemoveBefore();
                                         line.childend.Next(kaigyou2);
                                         var state = e.state.Clone();
+                                        state.elements[state.elements.Count - 2] = line;
                                         state.elements[state.elements.Count - 1] = kaigyou2;
                                         local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                                         line2.childend.Before(kaigyou);
@@ -702,7 +708,7 @@ namespace Cyclon
             elems.Add(elem);
             nums.Add(0);
         }
-        public void Single(SingleOp op)
+        public async void Single(SingleOp op, Local local)
         {
             if (op == null)
             {
@@ -720,6 +726,21 @@ namespace Cyclon
                 {
                     nums[nums.Count - 1]++;
                     line.add(new Letter() { text = nums.Last() + ".", name = nums.Last() + ".", type = LetterType.Htm });
+                }
+                else if (op.name == ">>")
+                {
+                    op.letter.text = "--";
+                    op.letter.type = LetterType.SingleComent;
+                    op.letter.parent.update = true;
+                    var text = "";
+                    foreach(var elem in instances)
+                    {
+                        text += elem.Text;
+                    }
+                    await local.panel.form.OPI(op.letter.parent as Line, text, local);
+                    instanceslist.RemoveAt(instanceslist.Count - 1);
+                    nums[nums.Count - 1] = 0;
+                    return;
                 }
                 else nums[nums.Count - 1] = 0;
                 foreach (var elem in instances) line.add(elem);
@@ -1353,7 +1374,6 @@ namespace Cyclon
         public override string Text
         {
             get {
-                if (type == LetterType.End) return "";
                 return text;
             }
         }
@@ -1367,12 +1387,13 @@ namespace Cyclon
         SingleMinus, Equal, In, Not, NotEqual, Decimal,
         Nyoro,
         HLetter,
-        Gpt,
+        RightRight,
         Space,
         Dolor,
         Htm,
         NyoroNyoro,
-        ElemEnd
+        ElemEnd,
+        SingleComent
     }
     enum CheckType
     {

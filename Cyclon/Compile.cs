@@ -59,47 +59,57 @@ namespace Cyclon
                 else if (text[i] == '"')
                 {
                     var j = i + 1;
-                    for (; j < text.Length; j++)
+                    for (; ; j++)
                     {
-                        if (text[j] == '"')
-                        {
-                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown});
-                            break;
-                        }
-                        else if (text[j] == '\n')
+                        if (j >= text.Length)
                         {
 
                             letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown });
-                            j--;
+                            break;
+                        }
+                        else if (text[j] == '"')
+                        {
+                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown});
+                            j++;
+                            break;
+                        }
+                        else if (text[j] == '\n' || text[j] == '\0')
+                        {
+
+                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown });
                             break;
                         }
                     }
-                    i = j;
+                    i = j - 1;
                 }
                 else if (text[i] == '`')
                 {
                     var j = i + 1;
-                    for (; j < text.Length; j++)
+                    for (; ; j++)
                     {
-                        if (text[j] == '`')
-                        {
-                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter });
-                            break;
-                        }
-                        else if (text[j] == '<' || text[j] == '>')
+                        if (j >= text.Length)
                         {
                             letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter });
-                            j--;
                             break;
                         }
-                        else if (text[j] == '\n')
+                        else if (text[j] == '`')
+                        {
+                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter });
+                            j++;
+                            break;
+                        }
+                        else if (text[j] == '<' || text[j] == '>' || text[j] == '~' || text[j] == '$')
+                        {
+                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter });
+                            break;
+                        }
+                        else if (text[j] == '\n' || text[j] == '\0')
                         {
                             letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter});
-                            j--;
                             break;
                         }
                     }
-                    i = j;
+                    i = j - 1;
                 }
                 else if (text[i] == ' ')
                 {
@@ -243,7 +253,7 @@ namespace Cyclon
                         }
                         else if (text[i + 1] == '>')
                         {
-                            letters.Add(new Letter() { text = ">>", name = ">>", type = LetterType.Gpt});
+                            letters.Add(new Letter() { text = ">>", name = ">>", type = LetterType.RightRight});
                             i++;
                         }
                         else letters.Add(new Letter() { text = ">", name = ">", type = LetterType.MoreThan});
@@ -302,6 +312,7 @@ namespace Cyclon
                 else if (text[i] =='\0')
                 {
                     letters.Add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
+                    return letters;
                 }
             }
             return letters;
@@ -528,7 +539,7 @@ namespace Cyclon
             var item = new Primary();
             if (comments > 0)
             {
-                if (local.state.letter.type == LetterType.Dot || local.state.letter.type == LetterType.Mul || local.state.letter.type == LetterType.Gpt)
+                if (local.state.letter.type == LetterType.Dot || local.state.letter.type == LetterType.Mul || local.state.letter.type == LetterType.RightRight)
                 {
                     item.singleop = new SingleOp(local.state.letter);
                     local.state.plus(1);

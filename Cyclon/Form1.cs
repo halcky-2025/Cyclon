@@ -7,26 +7,54 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Runtime.InteropServices;
-
+using OpenAI;
+using OpenAI.Chat;
+using System.Text.RegularExpressions;
 namespace Cyclon
 {
     partial class Form1 : Form
     {
 
+        [DllImport("user32.dll")]
+        public static extern void SetCapture(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern void ReleaseCapture();
         public RichTextPanel text;
         public RichTextPanel vision1;
+        public OpenAIClient client;
         public Form1()
         {
             InitializeComponent();
             using TestContext tc = new();
             text = new RichTextPanel(this);
             vision1 = new RichVisionPanel(this);
-            init();
             panel.Controls.Add(text);
             vision.Controls.Add(vision1);
+            vision1.local.size.X = vision1.Parent.Width;
+            vision1.local.size.Y = vision1.Parent.Height;
+            init();
             text.local.vision = vision1.local as Vision;
             text.local.local = text.local;
             vision1.local.local = text.local;
+            //OPI();
+        }
+        public async Task<int> OPI(Line line, String str, Local local)
+        {
+            var messages = new List<OpenAI.Chat.Message> { new OpenAI.Chat.Message(Role.User, str) };
+            var chat = new ChatRequest(messages, model: "gpt-4o-mini");
+            var result = await client.ChatEndpoint.GetCompletionAsync(chat);
+            foreach (var s in result.ToString().Split('\n'))
+            {
+                var line2 = new Line();
+                line2.childend.Next(new Letter() { text = s });
+                line.Next(line2);
+                line2.childstart = line2.childend.next;
+                line = line2;
+            }
+            local.panel.input = true;
+            local.panel.Invalidate();
+            return 0;
         }
         public async void init()
         {
@@ -34,12 +62,16 @@ namespace Cyclon
             await tc.Database.EnsureCreatedAsync();
             if (await tc.TestData.CountAsync() == 0)
             {
-                tc.Add(new TTestData { Name = "" });
+                var td = new TTestData { Name = "" };
+                tc.Add(td);
                 await tc.SaveChangesAsync();
+                client = new OpenAIClient(td.oapi);
+                text.Add("");
             }
             else
             {
                 var td = await tc.TestData.FirstAsync();
+                client = new OpenAIClient(td.oapi);
                 text.Add(td.Name);
                 try
                 {
@@ -47,9 +79,8 @@ namespace Cyclon
                     text.local.Setid();
                     item.exe(text.local);*/
                 }
-                catch(Exception e) { }
+                catch (Exception e) { }
             }
-
         }
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -61,12 +92,12 @@ namespace Cyclon
             int n = 0;
             using TestContext tc = new();
             var td = await tc.TestData.FirstAsync();
-            td.Name = text.Text;
+            td.Name = text.Text.Substring(0, text.Text.Length - 1);
             await tc.SaveChangesAsync();
             var item = Start(text.local);
             text.local.Setid();
             item.exe(text.local);
-            text.local.sigmap["server"].exe(text.local);
+            if (text.local.sigmap.ContainsKey("server")) text.local.sigmap["server"].exe(text.local);
             vision1.input = true;
             vision1.Invalidate();
             listen = true;
@@ -95,6 +126,15 @@ namespace Cyclon
                 await Task.Delay(500);
             }
         }
+
+        private async void button3_Click(object sender, EventArgs e)
+        {
+            using TestContext tc = new();
+            await tc.Database.EnsureCreatedAsync();
+            var td = await tc.TestData.FirstAsync();
+            td.Name = "";
+            await tc.SaveChangesAsync();
+        }
     }
     class RichTextPanel: Panel
     {
@@ -105,6 +145,7 @@ namespace Cyclon
         int n = 0;
         public bool input = false;
         public bool switchdraw = false;
+        public Capture capture = null;
         public RichTextPanel(Form1 form)
         {
             DoubleBuffered = true;
@@ -113,13 +154,15 @@ namespace Cyclon
             this.form = form;
             Font = new System.Drawing.Font(new FontFamily("Consolas"), 7.5f);
             TabStop = true;
-
         }
-        public override string Text {
-            get {
+        public override string Text
+        {
+            get
+            {
                 return local.Text;
             }
-            set {
+            set
+            {
             }
         }
         public void Add(String text)
@@ -127,6 +170,10 @@ namespace Cyclon
             local = new Local() { console = form.console, panel = this };
             var letters = Form1.Compile(text + "\0");
             for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
+            local.xtype = SizeType.Scroll;
+            local.ytype = SizeType.Scroll;
+            local.size.X = this.Parent.Width;
+            local.size.Y = this.Parent.Height;
             input = true;
         }
         protected override void OnKeyDown(KeyEventArgs e)
@@ -187,6 +234,7 @@ namespace Cyclon
                 {
                     timer = new System.Windows.Forms.Timer() { Interval = 10 };
                     timer.Tick += Timer_Tick;
+                    timer.Start();
                 }
                 return;
             }
@@ -205,10 +253,10 @@ namespace Cyclon
             timer.Stop();
             timer = null;
             bool select = false;
-            form.console.Text += ja.Substring(ja.Length / 2);
+            form.console.Text += ja;
             local.seln = -1;
             local.selects[0].state.n = local.selects[1].state.n = 0;
-            local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = ja.Substring(ja.Length / 2), key = Keys.None}, local, ref select);
+            local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = ja, key = Keys.None}, local, ref select);
             ja = "";
             input = true;
             Invalidate();
@@ -227,8 +275,17 @@ namespace Cyclon
         protected override void OnMouseUp(MouseEventArgs e)
         {
             var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
-            local.Mouse(mouse, local);
-            local.comlet = null;
+            if (capture != null)
+            {
+                capture.capture(capture, mouse);
+                Form1.ReleaseCapture();
+                capture = null;
+            }
+            else
+            {
+                local.Mouse(mouse, local);
+                local.comlet = null;
+            }
             Invalidate();
         }
         protected override void OnMouseMove(MouseEventArgs e)
@@ -237,8 +294,15 @@ namespace Cyclon
             if (Control.MouseButtons == MouseButtons.Left)
             {
                 var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
-                local.Mouse(mouse, local);
-                local.comlet = null;
+                if (capture != null)
+                {
+                    capture.capture(capture, mouse);
+                }
+                else
+                {
+                    local.Mouse(mouse, local);
+                    local.comlet = null;
+                }
                 Invalidate();
             }
         }
@@ -264,6 +328,8 @@ namespace Cyclon
         {
             local = new Vision() { console = form.console, panel = this };
             local.vision = local as Vision;
+            local.xtype = SizeType.Break;
+            local.ytype = SizeType.Scroll;
             input = true;
         }
     }

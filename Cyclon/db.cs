@@ -41,5 +41,7 @@ namespace Cyclon
         // 身長
         [Column("test_height")]
         public Double? Height { get; set; }
+        [Column("opai")]
+        public String oapi { get; set; } = "sk-proj-****";
     }
 }
