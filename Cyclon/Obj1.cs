@@ -74,8 +74,11 @@ namespace Cyclon
             {
                 switch (children[i].type)
                 {
-                    case ObjType.Dolor:
+                    case ObjType.Comment2:
+                        i++;
+                        continue;
                     case ObjType.Htm:
+                    case ObjType.TagBlock:
                         children[i].Clone().exep(ref i, local, this);
                         i++;
                         val1 = null;
@@ -103,9 +106,9 @@ namespace Cyclon
                     case ObjType.Comment:
                     case ObjType.Client:
                     case ObjType.Server:
-                    case ObjType.TagBlock:
                     case ObjType.Signal:
                     case ObjType.ServerClient:
+                    case ObjType.Dolor:
                         if (val1 == null)
                         {
                             val1 = children[i].Clone().exep(ref i, local, this);
@@ -154,7 +157,8 @@ namespace Cyclon
                         if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
                         break;
                     case ">>":
-                        op = singleop as SingleOp; break;
+                        op = singleop as SingleOp;
+                        if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
                     default:
                         val1 = val1.ope(str, local, null); break;
                 }
@@ -199,12 +203,12 @@ namespace Cyclon
         public RichTextBox console;
         public List<OpeFunc> operators = new List<OpeFunc>();
         public List<List<Block>> blockslist = new List<List<Block>>();
-        public ModelObj Int = new ModelObj();
-        public ModelObj Str = new ModelObj();
-        public ModelObj Bool = new ModelObj();
-        public ModelObj Float = new ModelObj();
-        public ModelObj MouseEvent = new ModelObj();
-        public ModelObj KeyEvent = new ModelObj();
+        public ModelObj Int = new ModelObj() { initial = true };
+        public ModelObj Str = new ModelObj() { initial = true };
+        public ModelObj Bool = new ModelObj() { initial = true };
+        public ModelObj Float = new ModelObj() { initial = true };
+        public ModelObj MouseEvent = new ModelObj() { initial = true };
+        public ModelObj KeyEvent = new ModelObj() { initial = true };
         public Gene gene = new Gene();
         public Block block;
         public Dictionary<String, Label> labelmap = new Dictionary<string, Label>();
@@ -408,7 +412,9 @@ namespace Cyclon
         KeyEventObj,
         MouseEventObj,
         Server,
-        Client
+        Client,
+        Comment2,
+        Clones
     }
     enum Accesor
     {
@@ -458,6 +464,10 @@ namespace Cyclon
                     line.update = true;
                 }
             }
+            pos = new PointF(m.x + m.px, m.y + m.py);
+            m.px += 1;
+            if (m.h < 10) m.h = 10;
+            size2.Y = m.h;
             if (local.comlet != null && type == LetterType.End)
             {
                 local.comlet = null;
@@ -469,9 +479,6 @@ namespace Cyclon
             }
             else
             {
-                pos = new PointF(m.x + m.px, m.y + m.py);
-                m.px += 1;
-                size2.Y = m.h;
                 return this;
             }
         }
@@ -730,14 +737,15 @@ namespace Cyclon
                 else if (op.name == ">>")
                 {
                     op.letter.text = "--";
-                    op.letter.type = LetterType.SingleComent;
+                    op.letter.type = LetterType.CommentSingle;
                     op.letter.parent.update = true;
+                    op.letter.parent.recompile = true;
                     var text = "";
                     foreach(var elem in instances)
                     {
                         text += elem.Text;
                     }
-                    await local.panel.form.OPI(op.letter.parent as Line, text, local);
+                    await local.panel.form.OPI(op.letter.parent as Line, op.letter, text, local);
                     instanceslist.RemoveAt(instanceslist.Count - 1);
                     nums[nums.Count - 1] = 0;
                     return;
@@ -1251,10 +1259,12 @@ namespace Cyclon
                                     line4.childend.before = this;
                                     line4.childend.Before(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou });
                                     var state = e.state.Clone();
+                                    state.elements[state.elements.Count - 2] = line3;
                                     state.elements[state.elements.Count - 1] = line3.childend.next;
                                     local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
                                     line4.Next(line3);
                                     line3.childstart = line3.childend.next;
+                                    line3.recompile = true;
                                     break;
                                 case Keys.Back:
                                     if (n1 == n2)
@@ -1393,7 +1403,14 @@ namespace Cyclon
         Htm,
         NyoroNyoro,
         ElemEnd,
-        SingleComent
+        SingleComent,
+        NyoroNyoroNyoro,
+        MinusMinus,
+        MinusMinusMinus,
+        CommentSingle,
+        CommentMany,
+        CommentManyEnd,
+        CloneElement
     }
     enum CheckType
     {

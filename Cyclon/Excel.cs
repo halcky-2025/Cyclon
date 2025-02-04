@@ -327,26 +327,39 @@ namespace Cyclon
         {
             childstart = start;
             childend = end;
+            type = LetterType.CloneElement;
+        }
+        public override void nextplus(State state)
+        {
+            state.elements[state.elements.Count - 1] = state.elements.Last().next;
+        }
+        public override string Text
+        {
+            get { return ""; }
         }
         public override Element Measure(Measure m, Local local, ref int order)
         {
-            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel };
-            if (font != null) measure.font = font;
-            var font0 = measure.font;
-            measure.x += margins[1] + paddings[1];
-            measure.y += margins[0] + paddings[0];
-            measure.sizex = size.X - margins[3] - paddings[3];
-            measure.sizey = size.Y - margins[2] - paddings[2];
-            for (var element = childend.next; element != childend; element = element.next)
+            pos.X = m.px;
+            pos.Y = m.py;
+            var py = 0f;
+            if (childstart.next.before != childstart)
             {
-                measure.py += element.size2.Y;
-                if (measure.sizex < element.size2.X) measure.sizex = element.size2.X;
+                next.RemoveBefore();
+                return null;
             }
-            pos = new Point((int)m.x, (int)m.y);
-            size2 = new Point((int)measure.sizex + margins[3] + paddings[3] + 1, (int)measure.py + margins[2] + paddings[2] + 1);
-            update = false;
-            if (m.sizex < measure.sizex) m.sizex = measure.sizex;
-            m.py += measure.py + margins[2] + paddings[2] + 1;
+            for (var element = childstart; element != childend; element = element.next)
+            {
+                if (element == childstart.before)
+                {
+                    next.RemoveBefore();
+                    return null;
+                }
+                if (m.sizex < element.size2.X) m.sizex = element.size2.X;
+                m.py += element.size2.Y;
+                py += element.size2.Y;
+            }
+            size2.X = m.sizex;
+            size2.Y = py;
             return null;
         }
         public override void Draw(Graphic g, Local local, ref bool select)
@@ -377,17 +390,32 @@ namespace Cyclon
                     else
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, scroll.Y, bitmap.Width, size.Y), GraphicsUnit.Pixel);
+                        if (ytype == SizeType.Scroll)
+                        {
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                        }
                     }
                 }
                 else
                 {
-                    if (ytype == SizeType.Auto)
+                    if (ytype == SizeType.Auto || ytype == SizeType.Break)
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, bitmap.Height), new RectangleF(scroll.X, 0, size.X, bitmap.Height), GraphicsUnit.Pixel);
                     }
                     else
                     {
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(scroll.X, scroll.Y, size.X, size.Y), GraphicsUnit.Pixel);
+                        if (ytype == SizeType.Scroll)
+                        {
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                        }
+                    }
+                    if (xtype == SizeType.Scroll)
+                    {
+                        g.g.FillRectangle(Brushes.LightGray, new RectangleF(0, size.Y - 10, size.X, 10));
+                        g.g.FillRectangle(Brushes.Gray, new RectangleF(scroll.X / size2.X * size.X, size.Y - 10, Math.Min(size.X / size2.X * size.X, size.X - scroll.X / size2.X * size.X), 10));
                     }
                 }
             }
@@ -395,12 +423,61 @@ namespace Cyclon
         }
         public override int Mouse(MouseEvent e, Local local)
         {
+            if (xtype == SizeType.Scroll)
+            {
+                if (e.y >= size.Y - 10)
+                {
+                    if (scroll.X / size2.X * size.X <= e.x && e.x < (scroll.X + size.X) / size2.X * size.X)
+                    {
+                        var x = scroll.X;
+                        local.panel.capture = new Capture()
+                        {
+                            down = e,
+                            capture = (c, e) =>
+                            {
+                                scroll.X = x + (e.x - c.down.x) * size2.X / size.X;
+                                if (scroll.X > size2.X - size.X) scroll.X = size2.X - size.X;
+                                if (scroll.X < 0) scroll.X = 0;
+                                return true;
+                            }
+                        };
+                    }
+                    Form1.SetCapture(local.panel.Handle);
+                    return -1;
+                }
+            }
+            if (ytype == SizeType.Scroll)
+            {
+                if (e.x >= size.X - 10 && e.y <= size.Y - 10)
+                {
+                    if (scroll.Y / size2.Y * (size.Y - 12) <= e.y && e.y < (scroll.Y + size.Y) / size2.Y * (size.Y - 12))
+                    {
+                        var y = scroll.Y;
+                        local.panel.capture = new Capture()
+                        {
+                            down = e,
+                            capture = (c, e) =>
+                            {
+                                scroll.Y = y + (e.y - c.down.y) * size2.Y / size.Y;
+                                if (scroll.Y > size2.Y - size.Y) scroll.Y = size2.Y - size.Y;
+                                if (scroll.Y < 0) scroll.Y = 0;
+                                return true;
+                            }
+                        };
+                    }
+                    Form1.SetCapture(local.panel.Handle);
+                    return -1;
+                }
+            }
+            e.x += (int)scroll.X;
+            e.y += (int)scroll.Y;
             var ret = -1;
             var select = false;
             if (mouse != null) mouse(e, local.local);
+            var posy = 0f;
             for (var element = childstart; element != childend; element = element.next)
             {
-                if (element.pos.Y <= e.y && e.y < element.pos.Y + element.size2.Y)
+                if (pos.Y + posy <= e.y && e.y < pos.Y + posy + element.size2.Y)
                 {
                     select = true;
                     e.state.elements.Add(element);
@@ -408,6 +485,7 @@ namespace Cyclon
                     e.state.elements.RemoveAt(e.state.elements.Count - 1);
                     return 0;
                 }
+                posy += element.size2.Y;
             }
             if (!select)
             {
@@ -434,9 +512,9 @@ namespace Cyclon
         public override int Key(KeyEvent e, Local local, ref bool select)
         {
             if (select) select = false;
-            e.state.elements.Add(childend.next);
+            e.state.elements.Add(childstart);
             var go = false;
-            for (var element = childstart; element != childend; element = e.state.elements[e.state.elements.Count - 1] = e.state.elements.Last().next)
+            for (var element = e.state.elements.Last(); element != childend; element = e.state.elements[e.state.elements.Count - 1] = e.state.elements.Last().next)
             {
                 if (local.selects[0].state.elements[local.selects[0].state.n] == element)
                 {

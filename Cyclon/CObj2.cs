@@ -18,9 +18,6 @@ namespace Cyclon
         public override Obj exe(Local local)
         {
             var block = new Block(ObjType.Comment);
-            block.vmap["type"] = new CType();
-            block.vmap["func"] = new CFunc();
-            block.vmap["dec"] = new CDec();
             block.vmap["div"] = new ElemType(ObjType.Div);
             block.vmap["br"] = new ElemType(ObjType.Br);
             local.blocks.Add(block);
@@ -39,9 +36,6 @@ namespace Cyclon
         public override Obj exep(ref int n, Local local, Primary primary)
         {
             var block = new Block(ObjType.Comment);
-            block.vmap["type"] = new CType();
-            block.vmap["func"] = new CFunc();
-            block.vmap["dec"] = new CDec();
             block.vmap["div"] = new ElemType(ObjType.Div);
             block.vmap["br"] = new ElemType(ObjType.Br);
             local.blocks.Add(block);
@@ -61,6 +55,67 @@ namespace Cyclon
         public override Obj Clone()
         {
             return new Comment() { letter = letter, vmap = vmap, children = children };
+        }
+    }
+    class Comment2 : Comment
+    {
+        public Comment2()
+        {
+            type = ObjType.Comment2;
+        }
+        public override Obj exe(Local local)
+        {
+            return this;
+        }
+        public override Obj exep(ref int n, Local local, Primary primary)
+        {
+            return this;
+        }
+    }
+    class Clones : Obj
+    {
+        public List<Letter[]> objs = new List<Letter[]>();
+        public Clones() : base(ObjType.Clones)
+        {
+            opes[">>"] = RightRight;
+        }
+        public Obj RightRight(String op, Local local, Obj val2)
+        {
+            local.panel.input = true;
+            var line2 = letter.parent;
+        head:
+            line2 = line2.next;
+            if (line2.type == LetterType.CloneElement)
+            {
+                line2.next.RemoveBefore();
+                goto head;
+            }
+            var line = letter.parent;
+            for (Element element = letter; ; element = element.next)
+            {
+                if (element.type == LetterType.NyoroNyoro)
+                {
+                    var lastline = new Line();
+                    element = element.before;
+                    lastline.AddRange(element.next);
+                    line.Next(lastline);
+                    lastline.childstart = lastline.childend.next;
+                    element.next = line.childend;
+                    line.childend.before = element;
+                    var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
+                    line.Next(kaigyou);
+                    break;
+                }
+                else if (element.type == LetterType.ElemEnd) break;
+            }
+            Element elem = line;
+            foreach(var obj in objs)
+            {
+                var elem2 = new CloneElement(obj[0].parent, obj[1].parent);
+                elem.Next(elem2);
+                elem = elem2;
+            }
+            return this;
         }
     }
     class Dolor: Obj
@@ -84,7 +139,26 @@ namespace Cyclon
                 switch(word.name)
                 {
                     case "type":
-                        break;
+                        var clones = new Clones();
+                        clones.letter = letter;
+                        foreach(var blk in local.blocks)
+                        {
+                            foreach(var val in blk.vmap.Values)
+                            {
+                                if (val.type == ObjType.ClassObj || val.type == ObjType.ModelObj || val.type == ObjType.GeneObj )
+                                {
+                                    var type = val as Type;
+                                    if (type.initial) continue;
+                                    clones.objs.Add(new Letter[] { type.letter, type.letter2 });
+                                }
+                                else if (val.type == ObjType.Generic)
+                                {
+                                    var generic = val as Generic;
+                                    clones.objs.Add(new Letter[] { generic.letter, generic.letter2 });
+                                }
+                            }
+                        }
+                        return clones;
                     case "func":
                         break;
                 }
@@ -103,7 +177,7 @@ namespace Cyclon
                     var str = (val2 as StrObj).value;
                     if (local.comments.Count > 0) local.comments.Last().Add(new Letter() { text = str, name = str, type = LetterType.Htm });
                 }
-                return this;
+                return null;
             }
             throw new Exception();
         }

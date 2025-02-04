@@ -220,6 +220,35 @@ namespace Cyclon
                             letters.Add(new Letter() { text = "->", name = "->", type = LetterType.Right});
                             i++;
                         }
+                        else if (text[i + 1] == '-')
+                        {
+                            i++;
+                            /*if (i + 1 > text.Length && text[i + 1] == '-')
+                            {
+                                i++;
+                                letters.Add(new Letter() { text = "---", name = "---", type = LetterType.CommentMany });
+                            }
+                            else*/
+                            {
+                                var j = i + 1;
+                                for (; ; j++)
+                                {
+                                    if (j >= text.Length)
+                                    {
+
+                                        letters.Add(new Letter() { text = text.Substring(i - 1, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.CommentSingle, brush = Brushes.Green });
+                                        break;
+                                    }
+                                    else if (text[j] == '\n' || text[j] == '\0')
+                                    {
+
+                                        letters.Add(new Letter() { text = text.Substring(i - 1, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.CommentSingle, brush = Brushes.Green });
+                                        break;
+                                    }
+                                }
+                                i = j - 1;
+                            }
+                        }
                         else letters.Add(new Letter() {text = "-", name = "-", type = LetterType.Minus});
                     }
                     else letters.Add(new Letter() { text = "-", name = "-", type = LetterType.Minus});
@@ -277,7 +306,12 @@ namespace Cyclon
                     if (i + 1 < text.Length && text[i + 1] == '~')
                     {
                         i++;
-                        letters.Add(new CommentLet() { text = "~~", name = "~~", type = LetterType.NyoroNyoro });
+                        if (i + 1 < text.Length && text[i + 1] == '~')
+                        {
+                            i++;
+                            letters.Add(new CommentLet() { text = "~~~", name = "~~~", type = LetterType.NyoroNyoroNyoro });
+                        }
+                        else letters.Add(new CommentLet() { text = "~~", name = "~~", type = LetterType.NyoroNyoro });
                     }
                     else letters.Add(new CommentLet() { text = "~", name = "~", type = LetterType.Nyoro});
                 }
@@ -313,6 +347,14 @@ namespace Cyclon
                 {
                     letters.Add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
                     return letters;
+                }
+                else if (text[i] >= 256)
+                {
+                    var j = i + 1;
+                    for(; j < text.Length || text[j] >= 256; j++)
+                    {
+                    }
+                    letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.CommentSingle });
                 }
             }
             return letters;
@@ -574,6 +616,14 @@ namespace Cyclon
                 else if (local.state.letter.type == LetterType.Nyoro)
                 {
                     var item2 = new Comment() { letter = local.state.letter };
+                    item.children.Add(item2);
+                    local.state.plus(1);
+                    var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1);
+                    item2.children.Add(ret.tobj);
+                }
+                else if (local.state.letter.type == LetterType.NyoroNyoroNyoro)
+                {
+                    var item2 = new Comment2() { letter = local.state.letter };
                     item.children.Add(item2);
                     local.state.plus(1);
                     var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1);

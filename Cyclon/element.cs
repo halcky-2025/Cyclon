@@ -284,6 +284,8 @@ namespace Cyclon
                     return -1;
                 }
             }
+            e.x += (int)scroll.X;
+            e.y += (int)scroll.Y;
             var ret = -1;
             var select = false;
             if (mouse != null) mouse(e, local.local);
@@ -383,6 +385,7 @@ namespace Cyclon
         public int n = 0;
         public void plus(int n)
         {
+            var comany = false;
             var l1 = element as Letter;
         head:
             if (elements.Count == 0)
@@ -394,13 +397,33 @@ namespace Cyclon
             var l2 = element as Letter;
             var n0 = n;
             n = element.plus(n);
-            if (n >= 0)
+            if (l2 == null)
             {
                 element.nextplus(this);
             }
-            else if (l2.type == LetterType.Space || (l1 != l2 && l1.type == LetterType.Kaigyou && l2.type == LetterType.Kaigyou))
+            else if (l2.type == LetterType.End)
+            {
+                element = l2;
+                return;
+            }
+            else if (l2.type == LetterType.CommentMany)
+            {
+                comany = !comany;
+                n = n0;
+                element.nextplus(this);
+            }
+            else if (comany)
             {
                 n = n0;
+                element.nextplus(this);
+            }
+            else if (l2.type == LetterType.Space || l2.type == LetterType.CommentSingle || (l1 != l2 && l1.type == LetterType.Kaigyou && l2.type == LetterType.Kaigyou))
+            {
+                n = n0;
+                element.nextplus(this);
+                    }
+            else if (n >= 0)
+            {
                 element.nextplus(this);
             }
             else
@@ -480,6 +503,7 @@ namespace Cyclon
     class MouseEvent
     {
         public int x, y;
+        public Point basepos;
         public MouseCall call;
         public RichTextPanel panel;
         public State state = new State();

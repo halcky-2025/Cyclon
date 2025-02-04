@@ -39,15 +39,33 @@ namespace Cyclon
             vision1.local.local = text.local;
             //OPI();
         }
-        public async Task<int> OPI(Line line, String str, Local local)
+        public async Task<int> OPI(Line line, Element element, String str, Local local)
         {
             var messages = new List<OpenAI.Chat.Message> { new OpenAI.Chat.Message(Role.User, str) };
             var chat = new ChatRequest(messages, model: "gpt-4o-mini");
             var result = await client.ChatEndpoint.GetCompletionAsync(chat);
+            for(; ; element = element.next)
+            {
+                if (element.type == LetterType.NyoroNyoro)
+                {
+                    var lastline = new Line();
+                    element = element.before;
+                    lastline.AddRange(element.next);
+                    line.Next(lastline);
+                    lastline.childstart = lastline.childend.next;
+                    element.next = line.childend;
+                    line.childend.before = element;
+                    var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
+                    line.Next(kaigyou);
+                    break;
+                }
+                else if (element.type == LetterType.ElemEnd) break;
+            }
             foreach (var s in result.ToString().Split('\n'))
             {
                 var line2 = new Line();
-                line2.childend.Next(new Letter() { text = s });
+                line2.childend.Next(new Letter() { text = "`" + s + "<br|>\n" });
+                line2.recompile = true;
                 line.Next(line2);
                 line2.childstart = line2.childend.next;
                 line = line2;
@@ -75,9 +93,9 @@ namespace Cyclon
                 text.Add(td.Name);
                 try
                 {
-                    /*var item = Start(text.local);
+                    var item = Start(text.local);
                     text.local.Setid();
-                    item.exe(text.local);*/
+                    item.exe(text.local);
                 }
                 catch (Exception e) { }
             }
@@ -100,6 +118,7 @@ namespace Cyclon
             if (text.local.sigmap.ContainsKey("server")) text.local.sigmap["server"].exe(text.local);
             vision1.input = true;
             vision1.Invalidate();
+            text.Invalidate();
             listen = true;
         }
         bool listen = false;
@@ -134,6 +153,10 @@ namespace Cyclon
             var td = await tc.TestData.FirstAsync();
             td.Name = "";
             await tc.SaveChangesAsync();
+            text.Add("");
+            text.local.local = text.local;
+            text.local.vision = vision1.local as Vision;
+            vision1.local.local = text.local;
         }
     }
     class RichTextPanel: Panel
@@ -175,6 +198,7 @@ namespace Cyclon
             local.size.X = this.Parent.Width;
             local.size.Y = this.Parent.Height;
             input = true;
+            Invalidate();
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
@@ -267,14 +291,14 @@ namespace Cyclon
         {
             base.OnMouseDown(e);
             this.Focus();
-            var mouse = new MouseEvent() { call = MouseCall.MouseDown, x = e.X, y = e.Y, panel = this };
+            var mouse = new MouseEvent() { call = MouseCall.MouseDown, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
             local.Mouse(mouse, local);
             local.comlet = null;
             Invalidate();
         }
         protected override void OnMouseUp(MouseEventArgs e)
         {
-            var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
+            var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
             if (capture != null)
             {
                 capture.capture(capture, mouse);
@@ -293,7 +317,7 @@ namespace Cyclon
             base.OnMouseMove(e);
             if (Control.MouseButtons == MouseButtons.Left)
             {
-                var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, panel = this };
+                var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
                 if (capture != null)
                 {
                     capture.capture(capture, mouse);

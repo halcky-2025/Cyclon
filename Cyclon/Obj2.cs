@@ -1097,8 +1097,6 @@ namespace Cyclon
         }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
         {
-            var blk1 = new Block(ObjType.Call1);
-            local.blocks.Add(blk1);
             Obj obj = new ClassObj();
             if (val2.type == ObjType.Word)
             {
@@ -1108,8 +1106,8 @@ namespace Cyclon
                 if (val2.type == ObjType.Block)
                 {
                     var generic = new Generic();
-                    generic.block = blk1;
-                    var block = val2.exe(local) as Block;
+                    var block = val2.Clone().exe(local) as Block;
+                    local.blocks.Add(block);
                     for (var i = 0; i < block.rets.Count; i++)
                     {
                         val2 = block.rets[i];
@@ -1118,11 +1116,14 @@ namespace Cyclon
                             generic.vmap[(val2 as Word).name] = new VariClass(i);
                         }
                     }
+                    local.blocks.RemoveAt(local.blocks.Count - 1);
+                    generic.block = block;
                     n++;
                     val2 = primary.children[n];
                     obj = generic;
                 }
                 local.declare(word.name, obj);
+                obj.letter = word.letter;
             }
         head:
             if (val2.type == ObjType.Left)
@@ -1167,10 +1168,17 @@ namespace Cyclon
             }
             if (val2.type == ObjType.CallBlock)
             {
+                if (obj.type == ObjType.Generic)
+                {
+                    (obj as Generic).letter2 = (val2.children[1] as Block).letter2;
+                }
+                else if (obj.type == ObjType.ClassObj)
+                {
+                    (obj as ClassObj).letter2 = (val2.children[1] as Block).letter2;
+                }
                 if (obj.type == ObjType.ClassObj) (obj as ClassObj).draw = val2 as CallBlock;
                 else if (obj.type == ObjType.Generic) (obj as Generic).draw = val2 as CallBlock;
                 n++;
-                local.blocks.RemoveAt(local.blocks.Count - 1);
                 return obj;
             }
             else throw new Exception();
@@ -1331,6 +1339,8 @@ namespace Cyclon
     class Type : Obj
     {
         public Type cls;
+        public Letter letter2;
+        public bool initial = false;
         public Type(ObjType type) : base(type)
         {
         }
@@ -1477,6 +1487,7 @@ namespace Cyclon
                     {
                         var variable = new Variable(type);
                         local.declare((val2 as Word).name, variable);
+                        variable.letter = val2.letter;
                     }
                 }
                 return blk;
@@ -1511,7 +1522,11 @@ namespace Cyclon
                 func.draw = val2 as CallBlock;
                 foreach (var b in local.blocks) func.blocks.Add(b);
                 n++;
-                if (word != null) local.declare(word.name, func);
+                if (word != null)
+                {
+                    local.declare(word.name, func);
+                    func.letter = word.letter;
+                }
                 return func;
             }
             else
@@ -1521,6 +1536,7 @@ namespace Cyclon
                 {
                     var variable = new Variable(type);
                     local.declare(word.name, variable);
+                    variable.letter = word.letter;
                 head1:
                     if (val2.type == ObjType.Left)
                     {
@@ -1627,6 +1643,7 @@ namespace Cyclon
     }
     class Generic : Obj
     {
+        public Letter letter2;
         public CallBlock draw;
         public Block block;
         public Dictionary<String, Type> vmap = new Dictionary<string, Type>();
@@ -2485,8 +2502,10 @@ namespace Cyclon
                 val2 = primary.children[n];
                 var gj = new ModelObj();
                 local.declare(word.name, gj);
+                gj.letter = word.letter;
                 if (val2.type == ObjType.CallBlock)
                 {
+                    gj.letter2 = (val2.children[1] as Block).letter2;
                     gj.call = val2 as CallBlock;
                     (gj.call.children[1] as Block).obj = gj;
                     n++;
@@ -2699,8 +2718,11 @@ namespace Cyclon
                 val2 = primary.children[n];
                 var gj = new GeneObj() { name = word.name };
                 local.gene.vmap[word.name] = gj;
+                local.declare(word.name, gj);
+                gj.letter = letter;
                 if (val2.type == ObjType.CallBlock)
                 {
+                    gj.letter2 = (val2.children[1] as Block).letter2;
                     gj.call = val2 as CallBlock;
                     (gj.call.children[1] as Block).obj = gj;
                     foreach (var blk in local.blocks) gj.blocks.Add(blk);
