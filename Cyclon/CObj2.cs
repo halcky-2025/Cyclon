@@ -20,6 +20,8 @@ namespace Cyclon
             var block = new Block(ObjType.Comment);
             block.vmap["div"] = new ElemType(ObjType.Div);
             block.vmap["br"] = new ElemType(ObjType.Br);
+            block.vmap["sheet"] = new ElemType(ObjType.Sheet);
+            block.vmap["cell"] = new ElemType(ObjType.Cell);
             local.blocks.Add(block);
             Obj ret = null;
             var comelet = (CommentLet)letter;
@@ -38,6 +40,8 @@ namespace Cyclon
             var block = new Block(ObjType.Comment);
             block.vmap["div"] = new ElemType(ObjType.Div);
             block.vmap["br"] = new ElemType(ObjType.Br);
+            block.vmap["sheet"] = new ElemType(ObjType.Sheet);
+            block.vmap["cell"] = new ElemType(ObjType.Cell);
             local.blocks.Add(block);
             Obj ret = null;
             var comelet = (CommentLet)letter;
@@ -103,7 +107,7 @@ namespace Cyclon
                     element.next = line.childend;
                     line.childend.before = element;
                     var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
-                    line.Next(kaigyou);
+                    line.childend.Next(kaigyou);
                     break;
                 }
                 else if (element.type == LetterType.ElemEnd) break;
@@ -201,6 +205,7 @@ namespace Cyclon
     }
     class TagBlock : CallBlock
     {
+        public ElemObj divobj;
         public TagBlock() : base()
         {
             type = ObjType.TagBlock;
@@ -208,7 +213,6 @@ namespace Cyclon
         public override Obj exep(ref int n, Local local, Primary primary)
         {
             var block1 = children[0].Clone().exe(local).Getter(local) as Block;
-            ElemObj divobj;
             if (block1.rets[0] is ElemType)
             {
                 divobj = new ElemObj(block1.rets[0] as ElemType, null);
@@ -230,7 +234,6 @@ namespace Cyclon
         public override Obj exe(Local local)
         {
             var block1 = children[0].Clone().exe(local).Getter(local) as Block;
-            ElemObj divobj;
             if (block1.rets[0] is ElemType)
             {
                 divobj = new ElemObj(block1.rets[0] as ElemType, null);
@@ -298,65 +301,25 @@ namespace Cyclon
             {
                 elem = new Div() { id = id };
             }
+            else if (type.type == ObjType.Sheet)
+            {
+                elem = new Sheet() { id = id };
+            }
+            else if (type.type == ObjType.Cell)
+            {
+                elem = new Cell() { id = id };
+            }
         }
         public void param(String name, Obj obj)
         {
-            switch(name)
-            {
-                case "x":
-                    elem.pos.X = (obj as Number).value;
-                    break;
-                case "y":
-                    elem.pos.Y = (obj as Number).value;
-                    break;
-                case "pos":
-                    var blk1 = obj as Block;
-                    elem.pos = new PointF((blk1.rets[0] as Number).value, (blk1.rets[1] as Number).value);
-                    break;
-                case "w":
-                case "width":
-                    elem.size.X = (obj as Number).value;
-                    break;
-                case "h":
-                case "height":
-                    elem.size.Y = (obj as Number).value;
-                    break;
-                case "size":
-                    var blk2 = obj as Block;
-                    elem.pos = new PointF((blk2.rets[0] as Number).value, (blk2.rets[1] as Number).value);
-                    break;
-                case "b":
-                case "background":
-                    var strobj = (obj as StrObj).value;
-                    switch(strobj)
-                    {
-                        case "red":
-                            elem.background = Brushes.Red;
-                            break;
-                        case "green":
-                            elem.background = Brushes.Green;
-                            break;
-                        case "blue":
-                            elem.background = Brushes.Blue;
-                            break;
-                        case "white":
-                            elem.background = Brushes.White;
-                            break;
-                        case "black":
-                            elem.background = Brushes.Black;
-                            break;
-                    }
-                    break;
-                case "onclick":
-                    (elem as Div).statuses.Add("mouse", obj);
-                    break;
-            }
+            (elem as Div).statuses.Add(name, obj);
+            (elem as Div).SetParam(name, obj);
         }
         public override Obj ope(string key, Local local, Obj val2)
         {
             if ((key == "+" || key == "!" || key == "*") && val2 == null)
             {
-                if (type.type == ObjType.Div)
+                if (type.type == ObjType.Div || type.type == ObjType.Sheet || type.type == ObjType.Cell)
                 {
                     (elem as Div).sop = key;
                 }
@@ -434,7 +397,7 @@ namespace Cyclon
                 val2 = primary.children[n];
                 if (val2.type == ObjType.CallBlock)
                 {
-                    var func = new SignalFunction() { draw = val2 as CallBlock };
+                    var func = new SignalFunction() { draw = val2 as CallBlock, name = word.name };
                     foreach (var b in local.blocks) func.blocks.Add(b);
                     for (var i = 0; i < local.blocks.Count; i--)
                     {
@@ -453,6 +416,7 @@ namespace Cyclon
     }
     class SignalFunction : Obj
     {
+        public String name;
         public List<Block> blocks = new List<Block>();
         public CallBlock draw;
         public SignalFunction() : base(ObjType.SingnalFunction)
@@ -486,6 +450,10 @@ namespace Cyclon
             if (val2.type != ObjType.Comment) throw new Exception();
             local.blockslist.RemoveAt(local.blockslist.Count - 1);
             return val2;
+        }
+        public override string Text()
+        {
+            return name;
         }
     }
     class ServerClient : Obj

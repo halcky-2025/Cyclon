@@ -4,14 +4,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Cyclon
 {
     partial class Form1 : Form
     {
-        public static List<Letter> Compile(string text)
+        public static List<Element> Compile(string text, Local local)
         {
-            List<Letter> letters = new List<Letter>();
+            var letters = new List<Element>();
             var bk = 0;
             var row = 0;
             for (var i = 0; i < text.Length; i++)
@@ -24,7 +25,7 @@ namespace Cyclon
                         if (('a' <= text[j] && text[j] <= 'z') || ('A' <= text[j] && text[j] <= 'Z') || ('0' <= text[j] && text[j] <= '9')) continue;
                         break;
                     }
-                    Letter l = new Letter() {text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Letter}.Let();
+                    Letter l = new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Letter }.Let();
                     letters.Add(l);
                     i = j - 1;
                 }
@@ -69,7 +70,7 @@ namespace Cyclon
                         }
                         else if (text[j] == '"')
                         {
-                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown});
+                            letters.Add(new Letter() { text = text.Substring(i, j - i + 1), name = text.Substring(i + 1, j - i - 1), type = LetterType.Str, brush = Brushes.Brown });
                             j++;
                             break;
                         }
@@ -105,7 +106,7 @@ namespace Cyclon
                         }
                         else if (text[j] == '\n' || text[j] == '\0')
                         {
-                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter});
+                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i + 1, j - i - 1), type = LetterType.HLetter });
                             break;
                         }
                     }
@@ -119,16 +120,16 @@ namespace Cyclon
                         if (text[j] == ' ') continue;
                         else break;
                     }
-                    letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Space});
+                    letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Space });
                     i = j - 1;
                 }
                 else if (text[i] == ':')
                 {
-                    letters.Add(new Letter() {text = ":", name = ":", type = LetterType.Colon});
+                    letters.Add(new Letter() { text = ":", name = ":", type = LetterType.Colon });
                 }
                 else if (text[i] == ';')
                 {
-                    letters.Add(new Letter() { text = ";", name = ";", type = LetterType.Semicolon});
+                    letters.Add(new Letter() { text = ";", name = ";", type = LetterType.Semicolon });
                 }
                 else if (text[i] == '$')
                 {
@@ -136,15 +137,15 @@ namespace Cyclon
                 }
                 else if (text[i] == ',')
                 {
-                    letters.Add(new Letter() {text = ",", name = ",", type = LetterType.Comma});
+                    letters.Add(new Letter() { text = ",", name = ",", type = LetterType.Comma });
                 }
                 else if (text[i] == '|')
                 {
-                    letters.Add(new Letter() { text = "|", name = "|", type = LetterType.Bou});
+                    letters.Add(new Letter() { text = "|", name = "|", type = LetterType.Bou });
                 }
                 else if (text[i] == '#')
                 {
-                    letters.Add(new Letter() {text = "#", name = "#", type = LetterType.Sharp});
+                    letters.Add(new Letter() { text = "#", name = "#", type = LetterType.Sharp });
                 }
                 else if (text[i] == '@')
                 {
@@ -157,14 +158,14 @@ namespace Cyclon
                             if (('a' <= text[j] && text[j] <= 'z') || ('A' <= text[j] && text[j] <= 'Z')) continue;
                             break;
                         }
-                        letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.AtLetter});
+                        letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.AtLetter });
                         i = j - 1;
                     }
                 }
                 else if (text[i] == '\n')
                 {
-                    var j = i+1;
-                    var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou};
+                    var j = i + 1;
+                    var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
                     letters.Add(kaigyou);
                     for (; j < text.Length; j++)
                     {
@@ -177,12 +178,12 @@ namespace Cyclon
                                 if (text[j] == ' ') continue;
                                 else break;
                             }
-                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Space});
+                            letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.Space });
                             j--;
                         }
                         else if (text[j] == '\n')
                         {
-                            letters.Add(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou});
+                            letters.Add(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou });
                         }
                         else break;
                     }
@@ -194,9 +195,9 @@ namespace Cyclon
                     if (i + 1 < text.Length && text[i + 1] == '=')
                     {
                         i++;
-                        letters.Add(new Letter() { text = "==", name = "==", type = LetterType.EqualEqual});
+                        letters.Add(new Letter() { text = "==", name = "==", type = LetterType.EqualEqual });
                     }
-                    else letters.Add(new Letter() { text = "=", name = "=", type = LetterType.Equal});
+                    else letters.Add(new Letter() { text = "=", name = "=", type = LetterType.Equal });
                 }
                 else if (text[i] == '!')
                 {
@@ -209,7 +210,7 @@ namespace Cyclon
                 }
                 else if (text[i] == '+')
                 {
-                    letters.Add(new Letter() { text = "+", name = text[i].ToString(), type = LetterType.Plus});
+                    letters.Add(new Letter() { text = "+", name = text[i].ToString(), type = LetterType.Plus });
                 }
                 else if (text[i] == '-')
                 {
@@ -217,7 +218,7 @@ namespace Cyclon
                     {
                         if (text[i + 1] == '>')
                         {
-                            letters.Add(new Letter() { text = "->", name = "->", type = LetterType.Right});
+                            letters.Add(new Letter() { text = "->", name = "->", type = LetterType.Right });
                             i++;
                         }
                         else if (text[i + 1] == '-')
@@ -249,9 +250,9 @@ namespace Cyclon
                                 i = j - 1;
                             }
                         }
-                        else letters.Add(new Letter() {text = "-", name = "-", type = LetterType.Minus});
+                        else letters.Add(new Letter() { text = "-", name = "-", type = LetterType.Minus });
                     }
-                    else letters.Add(new Letter() { text = "-", name = "-", type = LetterType.Minus});
+                    else letters.Add(new Letter() { text = "-", name = "-", type = LetterType.Minus });
                 }
                 else if (text[i] == '<')
                 {
@@ -259,17 +260,22 @@ namespace Cyclon
                     {
                         if (text[i + 1] == '-')
                         {
-                            letters.Add(new Letter() { text = "<-", name = "<-", type = LetterType.Left});
+                            letters.Add(new Letter() { text = "<-", name = "<-", type = LetterType.Left });
                             i++;
                         }
                         else if (text[i + 1] == '=')
                         {
-                            letters.Add(new Letter() { text = "<=", name = "<=", type = LetterType.LessEqual});
+                            letters.Add(new Letter() { text = "<=", name = "<=", type = LetterType.LessEqual });
                             i++;
                         }
-                        else letters.Add(new Letter() {text = "<", name = "<", type = LetterType.LessThan});
+                        else if (text[i + 1] == '&')
+                        {
+                            letters.Add(new Letter() { text = "<&", name = "<&", type = LetterType.StringTag });
+                            i++;
+                        }
+                        else letters.Add(new Letter() { text = "<", name = "<", type = LetterType.LessThan });
                     }
-                    else letters.Add(new Letter() { text = "<", name = "<", type = LetterType.LessThan});
+                    else letters.Add(new Letter() { text = "<", name = "<", type = LetterType.LessThan });
                 }
                 else if (text[i] == '>')
                 {
@@ -277,29 +283,29 @@ namespace Cyclon
                     {
                         if (text[i + 1] == '=')
                         {
-                            letters.Add(new Letter() { text = ">=", name = ">=", type = LetterType.MoreEqual});
+                            letters.Add(new Letter() { text = ">=", name = ">=", type = LetterType.MoreEqual });
                             i++;
                         }
                         else if (text[i + 1] == '>')
                         {
-                            letters.Add(new Letter() { text = ">>", name = ">>", type = LetterType.RightRight});
+                            letters.Add(new Letter() { text = ">>", name = ">>", type = LetterType.RightRight });
                             i++;
                         }
-                        else letters.Add(new Letter() { text = ">", name = ">", type = LetterType.MoreThan});
+                        else letters.Add(new Letter() { text = ">", name = ">", type = LetterType.MoreThan });
                     }
-                    else letters.Add(new Letter() { text = ">", name = ">", type = LetterType.MoreThan});
+                    else letters.Add(new Letter() { text = ">", name = ">", type = LetterType.MoreThan });
                 }
                 else if (text[i] == '*')
                 {
-                    letters.Add(new Letter() { text = "*", name = "*", type = LetterType.Mul});
+                    letters.Add(new Letter() { text = "*", name = "*", type = LetterType.Mul });
                 }
                 else if (text[i] == '/')
                 {
-                    letters.Add(new Letter() { text = "/", name = "/", type = LetterType.Div});
+                    letters.Add(new Letter() { text = "/", name = "/", type = LetterType.Div });
                 }
                 else if (text[i] == '|')
                 {
-                    letters.Add(new Letter() { text = "|", name = "|", type = LetterType.Bou});
+                    letters.Add(new Letter() { text = "|", name = "|", type = LetterType.Bou });
                 }
                 else if (text[i] == '~')
                 {
@@ -313,51 +319,101 @@ namespace Cyclon
                         }
                         else letters.Add(new CommentLet() { text = "~~", name = "~~", type = LetterType.NyoroNyoro });
                     }
-                    else letters.Add(new CommentLet() { text = "~", name = "~", type = LetterType.Nyoro});
+                    else letters.Add(new CommentLet() { text = "~", name = "~", type = LetterType.Nyoro });
                 }
                 else if (text[i] == '.')
                 {
-                    letters.Add(new Letter() { text = ".", name = ".", type = LetterType.Dot});
+                    letters.Add(new Letter() { text = ".", name = ".", type = LetterType.Dot });
                 }
                 else if (text[i] == '(')
                 {
-                    letters.Add(new Letter() { text = "(", name = "(", type = LetterType.BracketS});
+                    letters.Add(new Letter() { text = "(", name = "(", type = LetterType.BracketS });
                 }
                 else if (text[i] == ')')
                 {
-                    letters.Add(new Letter() { text = ")", name = ")", type = LetterType.BracketE});
+                    letters.Add(new Letter() { text = ")", name = ")", type = LetterType.BracketE });
                 }
                 else if (text[i] == '[')
                 {
-                    letters.Add(new Letter() { text = "[", name = "[", type = LetterType.BlockS});
+                    letters.Add(new Letter() { text = "[", name = "[", type = LetterType.BlockS });
                 }
                 else if (text[i] == ']')
                 {
-                    letters.Add(new Letter() { text = "]", name = "]", type = LetterType.BlockE});
+                    letters.Add(new Letter() { text = "]", name = "]", type = LetterType.BlockE });
                 }
                 else if (text[i] == '{')
                 {
-                    letters.Add(new Letter() { text = "{", name = "{", type = LetterType.BraceS});
+                    letters.Add(new Letter() { text = "{", name = "{", type = LetterType.BraceS });
                 }
                 else if (text[i] == '}')
                 {
-                    letters.Add(new Letter() { text = "}", name = "}", type = LetterType.BraceE});
+                    letters.Add(new Letter() { text = "}", name = "}", type = LetterType.BraceE });
                 }
-                else if (text[i] =='\0')
+                else if (text[i] == '\0')
                 {
                     letters.Add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
-                    return letters;
+                    break;
                 }
                 else if (text[i] >= 256)
                 {
                     var j = i + 1;
-                    for(; j < text.Length || text[j] >= 256; j++)
+                    for (; j < text.Length && text[j] >= 256; j++)
                     {
                     }
                     letters.Add(new Letter() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.CommentSingle });
+                    i = j - 1;
                 }
             }
+            var state2 = new State2() { elements = letters };
+            local.state = state2;
+            local.state.plus(1);
+            local.blockslist.Add(new List<Block>());
+            var block = new Block(ObjType.Comment);
+            block.vmap["div"] = new ElemType(ObjType.Div);
+            block.vmap["br"] = new ElemType(ObjType.Br);
+            block.vmap["sheet"] = new ElemType(ObjType.Sheet);
+            block.vmap["cell"] = new ElemType(ObjType.Cell);
+            local.blocks.Add(block);
+            var commentlet = new CommentLet();
+            commentlet.instanceslist.Add(new List<Element>());
+            local.comments.Add(commentlet);
+            local.panel.form.TagString(local, ObjType.Call1);
+            local.blockslist = new List<List<Block>>();
+            local.comments = new List<CommentLet>();
             return letters;
+        }
+        class State2 : State
+        {
+            public List<Element> tags = new List<Element>();
+            public override void plus(int n)
+            {
+                for(; this.n < elements.Count; )
+                {
+                    element = elements[this.n];
+                    if (element.type == LetterType.End)
+                    {
+                        return;
+                    }
+                    else if (element.type == LetterType.StringTag)
+                    {
+                        tags.Add(element);
+                        elements.RemoveAt(this.n);
+                        return;
+                    }
+                    else if (tags.Count > 0)
+                    {
+                        elements.RemoveAt(this.n);
+                        if (element.type == LetterType.Space) continue;
+                        else if (element.type == LetterType.MoreThan)
+                        {
+                            tags.RemoveAt(tags.Count - 1);
+                        }
+                        return;
+                    }
+                    this.n++;
+                }
+            }
+
         }
         Obj Start(Local local)
         {
@@ -576,6 +632,28 @@ namespace Cyclon
             }
             return item;
         }
+        public Obj TagString(Local local, ObjType type)
+        {
+            var tags = new List<Obj>();
+            for (; ; )
+            {
+                if (local.state.letter.type == LetterType.StringTag)
+                {
+                    var letter = local.state.letter;
+                    local.state.plus(1);
+                    var tagblock = Block(local, LetterType.MoreThan, 1) as TagBlock; ;
+                    tagblock.letter = letter;
+                    tagblock.exe(local);
+                    local.state.elements.Insert(local.state.n, tagblock.divobj.elem);
+                    local.state.n++;
+                }
+                else if (local.state.letter.type == LetterType.End || local.state.letter.type == LetterType.Kaigyou)
+                {
+                    return null;
+                }
+            }
+            return null;
+        }
         Obj Primary(Local local, int comments, ObjType type)
         {
             var item = new Primary();
@@ -600,7 +678,7 @@ namespace Cyclon
             var first = true;
             for (; ; )
             {
-                if (comments > 0 && type != ObjType.Call1 && local.state.letter.type == LetterType.LessThan)
+                if (comments > 0 && type != ObjType.Call1 && (local.state.letter.type == LetterType.LessThan || local.state.letter.type == LetterType.StringTag))
                 {
                     var letter = local.state.letter;
                     local.state.plus(1);

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System;
 using System.Collections.Generic;
+using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
@@ -24,6 +25,10 @@ namespace Cyclon
     enum KeyCall
     {
         KeyDown, KeyUp
+    }
+    enum Align
+    {
+        Left, Center, Right, Separate
     }
     enum SizeType
     {
@@ -71,6 +76,7 @@ namespace Cyclon
         public bool recompile = false;
         public Brush background;
         public LetterType type;
+        public Align align;
         public int id;
         public Element()
         {
@@ -142,6 +148,8 @@ namespace Cyclon
         }
         public virtual void Draw(Graphic g, Local local, ref bool select)
         {
+            var px = g.px;
+            var py = g.py;
             g.x += margins[1] + paddings[1];
             g.y += margins[0] + paddings[0];
             using (Bitmap bitmap = new Bitmap((int)size2.X, (int)size2.Y))
@@ -154,9 +162,47 @@ namespace Cyclon
                     }
                     else g2.Clear(Color.Transparent);
                     var g3 = new Graphic() { g = g2, font = g.font };
+                    var first = true;
+                    var sizey = 0f;
                     for (var elem = childend.next; elem != childend; elem = elem.next)
                     {
-                        elem.Draw(g3, local, ref select);
+                        if (align == Align.Left)
+                        {
+                            g3.px = g3.x;
+                            elem.Draw(g3, local, ref select);
+                        }
+                        else if (align == Align.Center)
+                        {
+                            g3.px = 0;
+                            g3.px = (size2.X - elem.size2.X) / 2;
+                            elem.Draw(g3, local, ref select);
+                        }
+                        else if (align == Align.Right)
+                        {
+                            g3.px = size2.X - elem.size2.X;
+                            elem.Draw(g3, local, ref select);
+                        }
+                        else if (align == Align.Separate)
+                        {
+                            if (first)
+                            {
+                                g3.px = g3.x;
+                                elem.Draw(g3, local, ref select);
+                                sizey = elem.size2.Y;
+                            }
+                            else
+                            {
+                                g3.px = (size2.X - elem.size2.X);
+                                elem.Draw(g3, local, ref select);
+                                g3.py += Math.Max(sizey, elem.size2.Y);
+                                sizey = 0;
+                            }
+                            first = !first;
+                            continue;
+                        }
+                        if (elem.ytype == SizeType.Limit || elem.ytype == SizeType.Scroll) sizey = elem.size.Y;
+                        else sizey = elem.size2.Y;
+                        g3.py += sizey;
                     }
                 }
                 if (xtype == SizeType.Auto || xtype == SizeType.Break)
@@ -170,8 +216,8 @@ namespace Cyclon
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, scroll.Y, bitmap.Width, size.Y), GraphicsUnit.Pixel);
                         if (ytype == SizeType.Scroll)
                         {
-                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
-                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(px + size.X - 10, py, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(px + size.X - 10, py + scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
                         }
                     }
                 }
@@ -186,18 +232,17 @@ namespace Cyclon
                         g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(scroll.X, scroll.Y, size.X, size.Y), GraphicsUnit.Pixel);
                         if (ytype == SizeType.Scroll)
                         {
-                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(size.X - 10, 0, 10, size.Y - 12));
-                            g.g.FillRectangle(Brushes.Gray, new RectangleF(size.X - 10, scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
+                            g.g.FillRectangle(Brushes.LightGray, new RectangleF(px + size.X - 10, py, 10, size.Y - 12));
+                            g.g.FillRectangle(Brushes.Gray, new RectangleF(px + size.X - 10, py + scroll.Y / size2.Y * (size.Y - 12), 10, Math.Min(size.Y / size2.Y * (size.Y - 12), size.Y - 12 - scroll.Y / size2.Y * (size.Y - 12))));
                         }
                     }
                     if (xtype == SizeType.Scroll)
                     {
-                        g.g.FillRectangle(Brushes.LightGray, new RectangleF(0, size.Y - 10, size.X, 10));
-                        g.g.FillRectangle(Brushes.Gray, new RectangleF(scroll.X / size2.X * size.X, size.Y - 10, Math.Min(size.X / size2.X * size.X, size.X - scroll.X / size2.X * size.X), 10));
+                        g.g.FillRectangle(Brushes.LightGray, new RectangleF(px, py + size.Y - 10, size.X, 10));
+                        g.g.FillRectangle(Brushes.Gray, new RectangleF(px + scroll.X / size2.X * size.X, py + size.Y - 10, Math.Min(size.X / size2.X * size.X, size.X - scroll.X / size2.X * size.X), 10));
                     }
                 }
             }
-            g.py += size2.Y;
         }
         public virtual Element Measure(Measure m, Local local, ref int order)
         {
@@ -208,6 +253,9 @@ namespace Cyclon
             measure.y += margins[0] + paddings[0];
             measure.sizex = size.X - margins[3] - paddings[3];
             measure.sizey = size.Y - margins[2] - paddings[2];
+            var first = true;
+            float sizex, sizey;
+            float sizex2 = 0, sizey2 = 0;
             for (var element = childend.next; element != childend; element = element.next)
             {
                 if (element is VirtualLine)
@@ -218,6 +266,27 @@ namespace Cyclon
             head:
                 measure.state.elements.Add(this);
                 var elem = element.Measure(measure, local, ref order);
+                if (element.ytype == SizeType.Limit || element.ytype == SizeType.Scroll) sizey = element.size.Y;
+                else sizey = element.size2.Y;
+                if (element.xtype == SizeType.Limit || element.xtype == SizeType.Scroll) sizex = element.size.X;
+                else sizex = element.size2.X;
+                if (align == Align.Separate)
+                {
+                    if (first)
+                    {
+                        sizex2 = sizex;
+                        sizey2 = sizey;
+                        sizey = 0;
+                    }
+                    else
+                    {
+                        sizex += sizex2;
+                        sizey = Math.Max(sizey, sizey2);
+                    }
+                    first = !first;
+                }
+                measure.py += sizey;
+                if (measure.sizex < sizex) measure.sizex = sizex;
                 measure.font = font0;
                 measure.state.elements.RemoveAt(measure.state.elements.Count - 1);
                 if (elem is VirtualLine)
@@ -227,13 +296,13 @@ namespace Cyclon
                     goto head;
                 }
             }
-            pos = new Point((int)m.x, (int)m.y);
+            pos = new Point((int)m.x, (int)(m.y + m.py));
             size2 = new Point((int)measure.sizex + margins[3] + paddings[3] + 1, (int)measure.py + margins[2] + paddings[2] + 1);
             if (xtype == SizeType.Scroll) size2.Y += 10;
             if (ytype == SizeType.Scroll) size2.X += 10;
+            size2.X = Math.Max(size2.X, size.X);
+            size2.Y = Math.Max(size2.Y, size.Y);
             update = false;
-            if (m.sizex < measure.sizex) m.sizex = measure.sizex;
-            m.py += measure.py + margins[2] + paddings[2] + 1; 
             return null;
         }
         public virtual int Mouse(MouseEvent e, Local local)
@@ -293,8 +362,29 @@ namespace Cyclon
             {
                 if (element.pos.Y <= e.y && e.y < element.pos.Y + element.size2.Y)
                 {
+                    e.y -= (int)element.pos.Y;
                     select = true;
                     e.state.elements.Add(element);
+                    if (align == Align.Left) { }
+                    else if (align == Align.Center)
+                    {
+                        e.x -= (int)((size2.X - element.size2.X) / 2);
+                    }
+                    else if (align == Align.Right)
+                    {
+                        e.x -= (int)(size2.X - element.size2.X);
+                    }
+                    else if (align == Align.Separate)
+                    {
+                        if (e.x > (int)(size2.X - element.next.size2.X))
+                        {
+                            e.state.elements[e.state.elements.Count - 1] = element.next;
+                            e.x -= (int)(size2.X - element.next.size2.X);
+                            ret = element.next.Mouse(e, local);
+                            e.state.elements.RemoveAt(e.state.elements.Count - 1);
+                            return 0;
+                        }
+                    }
                     ret = element.Mouse(e, local);
                     e.state.elements.RemoveAt(e.state.elements.Count - 1);
                     return 0;
@@ -376,6 +466,18 @@ namespace Cyclon
                 return ret;
             }
         }
+        public virtual String Text2
+        {
+            get
+            {
+                var ret = "";
+                for(var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
+                {
+                    ret += elem.Text2;
+                }
+                return ret;
+            }
+        }
     }
     class State
     {
@@ -383,7 +485,7 @@ namespace Cyclon
         public Element element = new Letter() { type = LetterType.None };
         public List<Element> histories = new List<Element>();
         public int n = 0;
-        public void plus(int n)
+        public virtual void plus(int n)
         {
             var comany = false;
             var l1 = element as Letter;
@@ -558,7 +660,7 @@ namespace Cyclon
                             n += letter.text.Length;
                         }
                     }
-                    var elements = new List<Element>(Form1.Compile(text));
+                    var elements = new List<Element>(Form1.Compile(text, local));
                     childend.next = childend.before = childend;
                     for (var i = 0; i < elements.Count; i++) childend.Before(elements[i]);
                     childstart = childend.next;
@@ -607,27 +709,15 @@ namespace Cyclon
                         childend = element;
                         size2.Y = m.h;
                         size2.X = m.px;
-                        m.py += m.h;
                         m.h = 0;
                         update = false;
-                        m.sizey = m.py;
-                        if (m.sizex < m.px) m.sizex = m.px;
                         return elem;
                     }
                 }
                 size2.Y = m.h;
                 size2.X = m.px;
-                m.py += m.h;
                 m.h = 0;
                 update = false;
-                if (m.sizex < m.px) m.sizex = m.px;
-                m.sizey = m.py;
-            }
-            else
-            {
-                if (m.sizex < size2.X) m.sizex = size2.X;
-                m.py += size2.Y;
-                m.sizey = m.py;
             }
             return null;
         }
@@ -639,8 +729,6 @@ namespace Cyclon
                 element.Draw(g, local, ref select);
                 if (element is VirtualLine) break;
             }
-            g.px = g.x;
-            g.py += size2.Y;
         }
         public override int Mouse(MouseEvent e, Local local)
         {
@@ -724,6 +812,18 @@ namespace Cyclon
             e.state.elements.RemoveAt(e.state.elements.Count - 1);
             return 0;
         }
+        public override string Text2
+        {
+            get
+            {
+                var ret = "`";
+                for(var elem = childstart; elem.type != LetterType.ElemEnd; elem = elem.next)
+                {
+                    ret += elem.Text2;
+                }
+                return ret + "`";
+            }
+        }
     }
     class VirtualLine : Line
     {
@@ -739,6 +839,10 @@ namespace Cyclon
             return 0;
         }
         public override string Text
+        {
+            get { return ""; }
+        }
+        public override string Text2
         {
             get { return ""; }
         }

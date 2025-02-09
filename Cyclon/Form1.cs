@@ -44,7 +44,7 @@ namespace Cyclon
             var messages = new List<OpenAI.Chat.Message> { new OpenAI.Chat.Message(Role.User, str) };
             var chat = new ChatRequest(messages, model: "gpt-4o-mini");
             var result = await client.ChatEndpoint.GetCompletionAsync(chat);
-            for(; ; element = element.next)
+            for (; ; element = element.next)
             {
                 if (element.type == LetterType.NyoroNyoro)
                 {
@@ -158,6 +158,17 @@ namespace Cyclon
             text.local.vision = vision1.local as Vision;
             vision1.local.local = text.local;
         }
+        public String totext = "";
+        private void button4_Click(object sender, EventArgs e)
+        {
+            totext = vision1.local.Text;
+            MessageBox.Show(totext);
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            vision1.Add(totext);
+        }
     }
     class RichTextPanel: Panel
     {
@@ -191,7 +202,7 @@ namespace Cyclon
         public void Add(String text)
         {
             local = new Local() { console = form.console, panel = this };
-            var letters = Form1.Compile(text + "\0");
+            var letters = Form1.Compile(text + "\0", local);
             for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
             local.xtype = SizeType.Scroll;
             local.ytype = SizeType.Scroll;

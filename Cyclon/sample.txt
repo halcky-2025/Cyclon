@@ -184,3 +184,18 @@ re
   <div log1033|`アプリを更新しました。>
 <!div log>
 <div log|
+<sheet sh|
+  <cell c11, #y sh.next|`1>
+  <cell c21|`2>
+  <cell c12, #y sh.next|`3>
+  <cell c22|`4>
+
+  <tr|
+      <td|`1>
+      <td|`2>
+  >
+  <tr|
+      <td|`3>
+      <td|`4>
+  >
+>

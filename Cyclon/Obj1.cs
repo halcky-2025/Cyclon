@@ -59,6 +59,11 @@ namespace Cyclon
             return this;
         }
         public virtual Obj Clone() { return this; }
+        public virtual String Text()
+        {
+            return "";
+
+        }
     }
     class Primary : Obj
     {
@@ -153,9 +158,6 @@ namespace Cyclon
                     case ".":
                         op = singleop as SingleOp; break;
                     case "*":
-                        op = singleop as SingleOp;
-                        if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
-                        break;
                     case ">>":
                         op = singleop as SingleOp;
                         if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
@@ -302,7 +304,7 @@ namespace Cyclon
             for (var elem = childend.next; elem.type != LetterType.ElemEnd; elem = next2)
             {
                 next2 = elem.next;
-                if (elem.type == LetterType.Div)
+                if (elem.type == LetterType.Div || elem.type == LetterType.Cell || elem.type == LetterType.Sheet)
                 {
                     var div = elem as Div;
                     if (div.sop != null)
@@ -316,8 +318,17 @@ namespace Cyclon
                                 if (elem2 != null)
                                 {
                                     div.SetStatus(elem2);
-                                    div.FirstRange(elem2.childend.next);
-                                    div.next.RemoveBefore(); 
+                                    if (elem.type == LetterType.Sheet || elem2.type == LetterType.Sheet) {
+                                        var sheet = elem as Sheet;
+                                        var sheet_old = elem2 as Sheet;
+                                        sheet.cells = sheet_old.cells;
+                                        sheet.x = sheet_old.x;
+                                        sheet.y = sheet_old.y;
+                                    }
+                                    else div.FirstRange(elem2.childend.next);
+                                    div.scroll.X = elem2.scroll.X;
+                                    div.scroll.Y = elem2.scroll.Y;
+                                    if (childend == owner) div.next.RemoveBefore(); 
                                     elem2.Next(div);
                                     div.RemoveBefore();
                                     continue;
@@ -336,7 +347,9 @@ namespace Cyclon
                                 if (elem2 != null)
                                 {
                                     div.SetStatus(elem2);
-                                    div.next.RemoveBefore();
+                                    div.scroll.X = elem2.scroll.X;
+                                    div.scroll.Y = elem2.scroll.Y;
+                                    if (childend == owner) div.next.RemoveBefore();
                                     elem2.Next(div);
                                     div.RemoveBefore();
                                 }
@@ -359,7 +372,9 @@ namespace Cyclon
                             emap[div.id] = div;
                             if (elem2 != null)
                             {
-                                div.next.RemoveBefore();
+                                div.scroll.X = elem2.scroll.X;
+                                div.scroll.Y = elem2.scroll.Y;
+                                if (childend == owner) div.next.RemoveBefore();
                                 elem2.Next(div);
                                 div.RemoveBefore();
                             }
@@ -368,6 +383,10 @@ namespace Cyclon
                         else if (childend != owner) owner.Before(elem);
                     }
                     AddElem(elem.childend, elem.childend);
+                }
+                else
+                {
+                    if (childend != owner){owner.Before(elem);}
                 }
             }
         }
@@ -414,7 +433,9 @@ namespace Cyclon
         Server,
         Client,
         Comment2,
-        Clones
+        Clones,
+        Sheet,
+        Cell
     }
     enum Accesor
     {
@@ -466,7 +487,7 @@ namespace Cyclon
             }
             pos = new PointF(m.x + m.px, m.y + m.py);
             m.px += 1;
-            if (m.h < 10) m.h = 10;
+            if (m.h < 16) m.h = 16;
             size2.Y = m.h;
             if (local.comlet != null && type == LetterType.End)
             {
@@ -669,14 +690,22 @@ namespace Cyclon
         {
             return 1;
         }
+        public override string Text2
+        {
+            get
+            {
+                if (type == LetterType.Kaigyou) return "\\n";
+                else return "";
+            }
+        }
     }
     class CommentLet : Letter
     {
         bool switched = false;
         public PointF pos3, size3;
         public Comment comment;
-        public List<Element> elems;
-        public List<int> nums;
+        public List<Element> elems = new List<Element>();
+        public List<int> nums = new List<int>();
         public Letter ValueAdd(String name)
         {
             var letter = new Letter() { text = "", name = "", type = LetterType.Htm };
@@ -758,6 +787,7 @@ namespace Cyclon
         }
         public void Back()
         {
+            elems.Last().add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
             elems.RemoveAt(elems.Count - 1);
             nums.RemoveAt(nums.Count - 1);
         }
@@ -1387,6 +1417,10 @@ namespace Cyclon
                 return text;
             }
         }
+        public override string Text2
+        {
+            get { return text; }
+        }
     }
     enum LetterType
     {
@@ -1410,7 +1444,10 @@ namespace Cyclon
         CommentSingle,
         CommentMany,
         CommentManyEnd,
-        CloneElement
+        CloneElement,
+        Cell,
+        StringTag,
+        Sheet
     }
     enum CheckType
     {

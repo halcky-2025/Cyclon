@@ -865,6 +865,10 @@ namespace Cyclon
             }
             throw new Exception();
         }
+        public override string ToString()
+        {
+            return value.ToString();
+        }
     }
     class FloatVal : Val
     {
@@ -1019,6 +1023,10 @@ namespace Cyclon
         {
             throw new Exception();
         }
+        public override string Text()
+        {
+            return value.ToString();
+        }
     }
     class StrObj : Val
     {
@@ -1040,6 +1048,10 @@ namespace Cyclon
         {
             throw new Exception();
         }
+        public override string Text()
+        {
+            return "\"" + value + "\"";
+        }
     }
     class BoolVal : Val
     {
@@ -1055,6 +1067,10 @@ namespace Cyclon
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
         {
             throw new Exception();
+        }
+        public override string Text()
+        {
+            return value.ToString();
         }
     }
     class VoiVal : Obj
@@ -2658,6 +2674,31 @@ namespace Cyclon
             {
                 return new Null();
             }
+        }
+        public Sheet output(Object model, Local local)
+        {
+            if (stocks.ContainsKey(model))
+            {
+                var vals = stocks[model];
+                var sheet = new Sheet();
+                foreach (var val in vals)
+                {
+                    bool first = true;
+                    foreach (var kv in val.vmap)
+                    {
+                        var cell = new Cell();
+                        cell.add(new Letter() { text = kv.Value.Text(), type = LetterType.Letter, recompile = true });
+                        if (first)
+                        {
+                            cell.statuses.Add("y", new BoolVal(true) { cls = local.Bool });
+                            first = false;
+                        }
+                        sheet.add(cell);
+                    }
+                }
+                return sheet;
+            }
+            else return new Sheet();
         }
         public Obj Sort(Object model, Local local, Function func)
         {
