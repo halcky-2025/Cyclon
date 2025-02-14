@@ -246,13 +246,13 @@ namespace Cyclon
         }
         public virtual Element Measure(Measure m, Local local, ref int order)
         {
-            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel };
+            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel, state = m.state };
             if (font != null) measure.font = font;
             var font0 = measure.font;
             measure.x += margins[1] + paddings[1];
             measure.y += margins[0] + paddings[0];
-            measure.sizex = size.X - margins[3] - paddings[3];
-            measure.sizey = size.Y - margins[2] - paddings[2];
+            measure.sizex = size.X - margins[3] - paddings[3] - 1;
+            measure.sizey = size.Y - margins[2] - paddings[2] - 1;
             var first = true;
             float sizex, sizey;
             float sizex2 = 0, sizey2 = 0;
@@ -264,7 +264,7 @@ namespace Cyclon
                     continue;
                 }
             head:
-                measure.state.elements.Add(this);
+                measure.state.elements.Add(element);
                 var elem = element.Measure(measure, local, ref order);
                 if (element.ytype == SizeType.Limit || element.ytype == SizeType.Scroll) sizey = element.size.Y;
                 else sizey = element.size2.Y;
@@ -319,14 +319,14 @@ namespace Cyclon
                             down = e,
                             capture = (c, e) =>
                         {
-                            scroll.X = x + (e.x - c.down.x) * size2.X / size.X;
+                            scroll.X = x + (e.basepos.X - c.down.basepos.X) * size2.X / size.X;
                             if (scroll.X > size2.X - size.X) scroll.X = size2.X - size.X;
                             if (scroll.X < 0) scroll.X = 0;
                             return true;
                         }
                         };
+                        Form1.SetCapture(local.panel.Handle);
                     }
-                    Form1.SetCapture(local.panel.Handle);
                     return -1;
                 }
             }
@@ -342,14 +342,14 @@ namespace Cyclon
                             down = e,
                             capture = (c, e) =>
                             {
-                                scroll.Y = y + (e.y - c.down.y) * size2.Y / size.Y;
+                                scroll.Y = y + (e.basepos.Y - c.down.basepos.Y) * size2.Y / size.Y;
                                 if (scroll.Y > size2.Y - size.Y) scroll.Y = size2.Y - size.Y;
                                 if (scroll.Y < 0) scroll.Y = 0;
                                 return true;
                             }
                         };
+                        Form1.SetCapture(local.panel.Handle);
                     }
-                    Form1.SetCapture(local.panel.Handle);
                     return -1;
                 }
             }
@@ -432,6 +432,7 @@ namespace Cyclon
                 if (select || go)
                 {
                     element.Key(e, local, ref select);
+                    if (local.seln == 2) return 0;
                     go = false;
                 }
             }
@@ -455,28 +456,24 @@ namespace Cyclon
                 state.elements[state.elements.Count - 2] = state.elements[state.elements.Count - 2].next;
             }
         }
-        public virtual String Text{
-            get
-            {
-                var ret = "";
-                for (var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
-                {
-                    ret += elem.Text;
-                }
-                return ret;
-            }
-        }
-        public virtual String Text2
+        public virtual String Text(Local local)
         {
-            get
+            var ret = "";
+            for (var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
             {
-                var ret = "";
-                for(var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
-                {
-                    ret += elem.Text2;
-                }
-                return ret;
+                ret += elem.Text(local);
             }
+            return ret;
+        }
+        public virtual String Text2(Local local)
+        {
+            var ret = "";
+            for (var elem = childend.next; elem.type != LetterType.ElemEnd; elem = elem.next)
+            {
+                ret += elem.Text2(local);
+            }
+            return ret;
+
         }
     }
     class State
@@ -519,7 +516,7 @@ namespace Cyclon
                 n = n0;
                 element.nextplus(this);
             }
-            else if (l2.type == LetterType.Space || l2.type == LetterType.CommentSingle || (l1 != l2 && l1.type == LetterType.Kaigyou && l2.type == LetterType.Kaigyou))
+            else if (l2.type == LetterType.Space || l2.type == LetterType.Select || l2.type == LetterType.CommentSingle || (l1 != l2 && l1.type == LetterType.Kaigyou && l2.type == LetterType.Kaigyou))
             {
                 n = n0;
                 element.nextplus(this);
@@ -627,6 +624,7 @@ namespace Cyclon
         public Element childstart;
         public Line()
         {
+            type = LetterType.Line;
             childstart = childend.next;
         }
         public override void add(Element e)
@@ -698,7 +696,7 @@ namespace Cyclon
                 m.px = m.x;
                 for (var element = childstart; element != childend; element = element.next)
                 {
-                    m.state.elements.Add(this);
+                    m.state.elements.Add(element);
                     var elem = element.Measure(m, local, ref order);
                     m.state.elements.RemoveAt(m.state.elements.Count - 1);
                     if (elem is VirtualLine)
@@ -808,27 +806,35 @@ namespace Cyclon
             for( ; e.state.elements.Last().type != LetterType.ElemEnd;)
             {
                 var ret = e.state.elements.Last().Key(e, local, ref select);
+                if (local.seln == 2) return 0;
             }
             e.state.elements.RemoveAt(e.state.elements.Count - 1);
             return 0;
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get
+            var ret = "`";
+            var tex = "";
+            for (var elem = childstart; elem.type != LetterType.ElemEnd; elem = elem.next)
             {
-                var ret = "`";
-                for(var elem = childstart; elem.type != LetterType.ElemEnd; elem = elem.next)
+                if (local.selects[0].state.elements.Last() == elem)
                 {
-                    ret += elem.Text2;
+                    ret = (char)('\uE000' + (tex.Length + local.selects[0].n) * 2) + ret;
                 }
-                return ret + "`";
+                if (local.selects[1].state.elements.Last() == elem)
+                {
+                    ret = (char)('\uE000' + (tex.Length + local.selects[1].n) * 2 + 1) + ret;
+                }
+                tex += elem.Text2(local);
             }
+            return ret + tex + "`";
         }
     }
     class VirtualLine : Line
     {
         public VirtualLine()
         {
+            type = LetterType.VirtualLine;
         }
         public override void nextplus(State state)
         {
@@ -838,13 +844,13 @@ namespace Cyclon
         {
             return 0;
         }
-        public override string Text
+        public override string Text(Local local)
         {
-            get { return ""; }
+            return "";
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get { return ""; }
+            return "";
         }
     }
 }

@@ -85,12 +85,14 @@ namespace Cyclon
                 await tc.SaveChangesAsync();
                 client = new OpenAIClient(td.oapi);
                 text.Add("");
+                text.history.Add("\0");
             }
             else
             {
                 var td = await tc.TestData.FirstAsync();
                 client = new OpenAIClient(td.oapi);
                 text.Add(td.Name);
+                text.history.Add(td.Name + "\0");
                 try
                 {
                     var item = Start(text.local);
@@ -110,7 +112,7 @@ namespace Cyclon
             int n = 0;
             using TestContext tc = new();
             var td = await tc.TestData.FirstAsync();
-            td.Name = text.Text.Substring(0, text.Text.Length - 1);
+            td.Name = text.Text.Substring(0, text.Text.Length);
             await tc.SaveChangesAsync();
             var item = Start(text.local);
             text.local.Setid();
@@ -161,7 +163,7 @@ namespace Cyclon
         public String totext = "";
         private void button4_Click(object sender, EventArgs e)
         {
-            totext = vision1.local.Text;
+            totext = vision1.local.Text(vision1.local);
             MessageBox.Show(totext);
         }
 
@@ -170,8 +172,32 @@ namespace Cyclon
             vision1.Add(totext);
         }
     }
+    class History
+    {
+        public List<String> texts = new List<string>();
+        public int n = 0;
+        public void Add(String text)
+        {
+            if (n != texts.Count) texts.RemoveRange(n, texts.Count - n);
+            texts.Add(text);
+            n++;
+        }
+        public String Back()
+        {
+            if (n == 1) return null;
+            n--;
+            return texts[n - 1];
+        }
+        public String Go()
+        {
+            if (n == texts.Count) return null;
+            n++;
+            return texts[n - 1];
+        }
+    }
     class RichTextPanel: Panel
     {
+        public History history = new History();
         public CommentLet switched;
         public Form1 form;
         public Local local;
@@ -193,10 +219,19 @@ namespace Cyclon
         {
             get
             {
-                return local.Text;
+                return local.Text(local);
             }
             set
             {
+                local = new Local() { console = form.console, panel = this };
+                var letters = Form1.Compile(value + "\0", local);
+                for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
+                local.xtype = SizeType.Scroll;
+                local.ytype = SizeType.Scroll;
+                local.size.X = this.Parent.Width;
+                local.size.Y = this.Parent.Height;
+                input = true;
+                Invalidate();
             }
         }
         public void Add(String text)
@@ -218,36 +253,44 @@ namespace Cyclon
             switch(e.KeyCode)
             {
                 case Keys.Back:
-                    e.Handled = true;
-                    local.seln = -1;
-                    local.selects[0].state.n = local.selects[1].state.n = 0;
-                    local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = ""}, local, ref select);
-                    input = true;
-                    Invalidate();
-                    break;
                 case Keys.Delete:
+                case Keys.Enter:
+                case Keys.Left:
+                case Keys.Right:
+                    local.countn = -1;
+                    goto case Keys.Up;
+                case Keys.Up:
+                case Keys.Down:
                     e.Handled = true;
                     local.seln = -1;
                     local.selects[0].state.n = local.selects[1].state.n = 0;
                     local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = ""}, local, ref select);
-                    input = true;
+                    if (input == true) history.Add(local.Text(local));
                     Invalidate();
                     break;
-                case Keys.Enter:
-                    e.Handled = true;
-                    local.seln = -1;
-                    local.selects[0].state.n = local.selects[1].state.n = 0;
-                    local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = "" }, local, ref select);
-                    input = true;
-                    Invalidate();
+                case Keys.Z:
+                    if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+                    {
+                        var back = history.Back();
+                        if (back == null) break;
+                        Add(back);
+                        //var item = form.Start(local);
+                        //item.exe(local);
+                        input = true;
+                        Invalidate();
+                    }
                     break;
-                case Keys.Left:
-                    break;
-                case Keys.Right:
-                    break;
-                case Keys.Up:
-                    break;
-                case Keys.Down:
+                case Keys.Y:
+                    if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+                    {
+                        var back = history.Go();
+                        if (back == null) break;
+                        Add(back.Substring(0, back.Length - 1));
+                        var item = form.Start(local);
+                        item.exe(local);
+                        input = true;
+                        Invalidate();
+                    }
                     break;
             }
         }
@@ -276,10 +319,10 @@ namespace Cyclon
             bool select = false;
             form.console.Text += e.KeyChar;
             local.seln = -1;
+            local.countn = -1;
             local.selects[0].state.n = local.selects[1].state.n = 0;
             local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = e.KeyChar.ToString(), key = Keys.None }, local, ref select);
-            input = true;
-            e.Handled = true;
+            if (input == true) history.Add(local.Text(local));
             Invalidate();
         }
 
@@ -293,7 +336,7 @@ namespace Cyclon
             local.selects[0].state.n = local.selects[1].state.n = 0;
             local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = ja, key = Keys.None}, local, ref select);
             ja = "";
-            input = true;
+            if (input == true) history.Add(local.Text(local));
             Invalidate();
         }
         bool mousedown = false;
@@ -303,6 +346,7 @@ namespace Cyclon
             base.OnMouseDown(e);
             this.Focus();
             var mouse = new MouseEvent() { call = MouseCall.MouseDown, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
+            local.countn = -1;
             local.Mouse(mouse, local);
             local.comlet = null;
             Invalidate();
@@ -310,6 +354,7 @@ namespace Cyclon
         protected override void OnMouseUp(MouseEventArgs e)
         {
             var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
+            local.countn = -1;
             if (capture != null)
             {
                 capture.capture(capture, mouse);
@@ -329,6 +374,7 @@ namespace Cyclon
             if (Control.MouseButtons == MouseButtons.Left)
             {
                 var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
+                local.countn = -1;
                 if (capture != null)
                 {
                     capture.capture(capture, mouse);

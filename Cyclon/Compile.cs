@@ -354,6 +354,10 @@ namespace Cyclon
                     letters.Add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
                     break;
                 }
+                else if (text[i] >= '\uE000')
+                {
+                    letters.Add(new SelectLetter(text[i] - '\uE000'));
+                }
                 else if (text[i] >= 256)
                 {
                     var j = i + 1;
@@ -404,6 +408,18 @@ namespace Cyclon
                     {
                         elements.RemoveAt(this.n);
                         if (element.type == LetterType.Space) continue;
+                        else if (element.type == LetterType.Select)
+                        {
+                            elements[this.n].Before(element);
+                            if (elements[this.n].type == LetterType.Select)
+                            {
+                                elements[this.n + 1].Before(element);
+                                elements[this.n + 1].Before(elements[this.n]);
+                                elements.RemoveAt(this.n);
+                            }
+                            else elements[this.n].Before(element);
+                            continue;
+                        }
                         else if (element.type == LetterType.MoreThan)
                         {
                             tags.RemoveAt(tags.Count - 1);
@@ -415,7 +431,7 @@ namespace Cyclon
             }
 
         }
-        Obj Start(Local local)
+        public Obj Start(Local local)
         {
             local.state = new State();
             local.state.elements.Add(local);
@@ -650,6 +666,10 @@ namespace Cyclon
                 else if (local.state.letter.type == LetterType.End || local.state.letter.type == LetterType.Kaigyou)
                 {
                     return null;
+                }
+                else
+                {
+                    local.state.plus(1);
                 }
             }
             return null;

@@ -201,6 +201,7 @@ namespace Cyclon
         public State state;
         public Select[] selects = new Select[2] { new Select(), new Select() };
         public int seln;
+        public int countn = -1;
         public List<int> indents = new List<int>();
         public RichTextBox console;
         public List<OpeFunc> operators = new List<OpeFunc>();
@@ -274,6 +275,7 @@ namespace Cyclon
             {
                 if (blocks[i].vmap.ContainsKey(name)) return blocks[i].vmap[name];
             }
+            if (local.sigmap.ContainsKey(name)) return local.sigmap[name];
             throw new Exception();
         }
         public void label(String name)
@@ -553,6 +555,7 @@ namespace Cyclon
                         if (local.selects[i].state.elements[local.selects[i].state.n] == this)
                         {
                             local.seln = i;
+                            var seln = i;
                             if (key != null) key(e, local);
                             if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
                             {
@@ -560,6 +563,7 @@ namespace Cyclon
                                 switch (e.key)
                                 {
                                     case Keys.Enter:
+                                        local.panel.input = true;
                                         var line = new Line();
                                         var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
                                         var line2 = e.state.elements[e.state.elements.Count - 2];
@@ -577,6 +581,7 @@ namespace Cyclon
                                         e.state.elements[e.state.elements.Count - 1] = line2.childend;
                                         return 1;
                                     case Keys.Back:
+                                        local.panel.input = true;
                                         var line3 = e.state.elements[e.state.elements.Count - 2];
                                         if (line3.childend.next == this)
                                         {
@@ -620,6 +625,7 @@ namespace Cyclon
                                             else throw new Exception();
                                         }
                                     case Keys.Delete:
+                                        local.panel.input = true;
                                         var line4 = e.state.elements[e.state.elements.Count - 2];
                                         var line7 = line4;
                                     head:
@@ -640,8 +646,471 @@ namespace Cyclon
                                         local.selects[0] = local.selects[1] = new Select() { state = state3, n = 0 };
                                         e.state.elements[e.state.elements.Count - 1] = start2;
                                         return 0;
+                                    case Keys.Left:
+                                        if (local.selects[seln].n == 0)
+                                        {
+                                            var elem = local.selects[seln].state.elements.Last();
+                                            elem = elem.before;
+                                            var line00 = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] as Line;
+                                            Element body3 = null;
+                                            if (local.selects[seln].state.elements.Count >= 3) body3 = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                            if (body3 != null && elem.type == LetterType.ElemEnd && body3.type == LetterType.CloneElement)
+                                            {
+                                                var clone = body3 as CloneElement;
+                                                if (line00 == clone.childstart)
+                                                {
+                                                    var elem01 = body3;
+                                                    elem01 = elem01.before;
+                                                    if (elem01.type == LetterType.Line || elem01.type == LetterType.VirtualLine)
+                                                    {
+                                                        local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = elem01;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem01.childend.before;
+                                                        local.selects[seln].n = Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem01.type == LetterType.CloneElement)
+                                                    {
+                                                        clone = elem01 as CloneElement;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = clone.childend.childend.before;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else { return 1; }
+                                                }
+                                            }
+                                            var line06 = line00.before as Line;
+                                            if (elem.type == LetterType.ElemEnd || (line00 != null && elem == line00.childend))
+                                            {
+                                                if (line06 == null)
+                                                {
+                                                    if (line00.before.type == LetterType.CloneElement)
+                                                    {
+                                                        var clone = line00.before as CloneElement;
+                                                        var element = clone.childend.childend.before;
+                                                        local.selects[seln].state.elements.Add(element);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                                        local.selects[seln].n = element.Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    return 1;
+                                                }
+                                                else
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line06;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line06.childend.before;
+                                                    local.selects[seln].n = line06.childend.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                }
+                                            }
+                                            else
+                                            {
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                local.selects[seln].n = elem.Count() - 1;
+                                                local.selects[(seln + 1) % 2] = local.selects[seln];
+                                            }
+                                        }
+                                        else
+                                        {
+                                            local.selects[0].n--;
+                                            local.selects[1].n = local.selects[0].n;
+                                        }
+                                        break;
+                                    case Keys.Right:
+                                        if (type == LetterType.End) return 1;
+                                        var line01 = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] as Line;
+                                        Element body2 = null;
+                                        if (local.selects[seln].state.elements.Count >= 3) body2 = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                        if (body2 != null && body2.type == LetterType.CloneElement)
+                                        {
+                                            var clone = body2 as CloneElement;
+                                            if (line01 == clone.childend)
+                                            {
+                                                var elem01 = body2;
+                                                elem01 = elem01.next;
+                                                if (elem01.type == LetterType.Line || elem01.type == LetterType.VirtualLine)
+                                                {
+                                                    local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = elem01;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = (elem01 as Line).childstart;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem01.type == LetterType.CloneElement)
+                                                {
+                                                    clone = elem01 as CloneElement;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = (clone.childstart as Line).childstart;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else { return 1; }
+                                            }
+                                        }
+                                        var line07 = line01.next as Line;
+                                        if (line07 == null)
+                                        {
+                                            if (line01.next.type == LetterType.CloneElement)
+                                            {
+                                                var clone = line01.next as CloneElement;
+                                                var element = (clone.childstart as Line).childstart;
+                                                local.selects[seln].state.elements.Add(element);
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                local.selects[seln].n = 0;
+                                                local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                return 1;
+                                            }
+                                            return 1;
+                                        }
+                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line07;
+                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line07.childstart;
+                                        local.selects[seln].n = 0;
+                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                        break;
+                                    case Keys.Up:
+                                        var line02 = local.selects[seln].state.elements.Last().parent as Line;
+                                        var line03 = line02.before as Line;
+                                        Element body = null;
+                                        if (local.selects[seln].state.elements.Count >= 3) body = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                        var n2 = 0;
+                                        if (local.countn == -1)
+                                        {
+                                            for (var elem = line02.childstart; ; elem = elem.next)
+                                            {
+                                                if (elem == local.selects[seln].state.elements.Last())
+                                                {
+                                                    n2 += local.selects[seln].n;
+                                                    break;
+                                                }
+                                                n2 += elem.Count();
+                                            }
+                                            local.countn = n2;
+                                        }
+                                        else n2 = local.countn;
+                                        if (body != null && body.type == LetterType.CloneElement)
+                                        {
+                                            var clone = body as CloneElement;
+                                            if (line02 == clone.childstart)
+                                            {
+                                                var elem2 = clone.before;
+                                                if (elem2.type == LetterType.Line || elem2.type == LetterType.VirtualLine)
+                                                {
+                                                    line03 = elem2 as Line;
+                                                    local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line03;
+                                                    for (var elem = line03.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n2 - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line03.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n2;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n2 = n3;
+                                                    }
+                                                }
+                                                else if (elem2.type == LetterType.CloneElement)
+                                                {
+                                                    clone = elem2 as CloneElement;
+                                                    line2 = clone.childend as Line;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line03.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n2 - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n2;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n2 = n3;
+                                                    }
+                                                }
+                                                else { return 1; }
+                                            }
+                                        }
+                                        if (line03 == null)
+                                        {
+                                            var clone = line02.before as CloneElement;
+                                            local.selects[seln].state.elements.Add(null);
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                            line2 = clone.childend as Line;
+                                            for (var elem = line03.childstart; ; elem = elem.next)
+                                            {
+                                                var n3 = n2 - elem.Count();
+                                                if (elem.type == LetterType.Kaigyou)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem == line2.childend)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                    local.selects[seln].n = elem.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+
+                                                }
+                                                if (n3 < 0)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = n2;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                n2 = n3;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line03;
+                                            for (var elem = line03.childstart; ; elem = elem.next)
+                                            {
+                                                var n3 = n2 - elem.Count();
+                                                if (elem.type == LetterType.Kaigyou)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem == line03.childend)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                    local.selects[seln].n = elem.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+
+                                                }
+                                                if (n3 < 0)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = n2;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                n2 = n3;
+                                            }
+                                        }
+                                        break;
+                                    case Keys.Down:
+                                        var line04 = local.selects[seln].state.elements.Last().parent as Line;
+                                        var line05 = line04.next as Line;
+                                        var n = 0;
+                                        if (local.countn == -1)
+                                        {
+                                            for (var elem = line04.childstart; ; elem = elem.next)
+                                            {
+                                                if (elem == local.selects[seln].state.elements.Last())
+                                                {
+                                                    n += local.selects[seln].n;
+                                                    break;
+                                                }
+                                                n += elem.Count();
+                                            }
+                                            local.countn = n;
+                                        }
+                                        else n = local.countn;
+                                        Element body4 = null;
+                                        if (local.selects[seln].state.elements.Count >= 3) body4 = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                        if (body4 != null && body4.type == LetterType.CloneElement)
+                                        {
+                                            var clone = body4 as CloneElement;
+                                            if (line04 == clone.childend)
+                                            {
+                                                var elem2 = clone.next;
+                                                if (elem2.type == LetterType.Line || elem2.type == LetterType.VirtualLine)
+                                                {
+                                                    line05 = elem2 as Line;
+                                                    local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line05;
+                                                    for (var elem = line05.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line05.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                                else if (elem2.type == LetterType.CloneElement)
+                                                {
+                                                    clone = elem2 as CloneElement;
+                                                    line2 = clone.childstart as Line;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line05.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (line05 == null)
+                                        {
+                                            if (line04.next.type == LetterType.CloneElement)
+                                            {
+                                                var clone = line04.next as CloneElement;
+                                                local.selects[seln].state.elements.Add(null);
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                line2 = clone.childstart as Line;
+                                                for (var elem = line05.childstart; ; elem = elem.next)
+                                                {
+                                                    var n3 = n - elem.Count();
+                                                    if (elem.type == LetterType.Kaigyou)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem == line2.childend)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                        local.selects[seln].n = elem.before.Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+
+                                                    }
+                                                    if (n3 < 0)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = n;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    n = n3;
+                                                }
+                                            }
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line04.childend.before;
+                                            local.selects[seln].n = line04.childend.before.Count() - 1;
+                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                        }
+                                        else
+                                        {
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line05;
+                                            for (var elem = line05.childstart; ; elem = elem.next)
+                                            {
+                                                var n3 = n - elem.Count();
+                                                if (elem.type == LetterType.Kaigyou)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem == line05.childend)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                    local.selects[seln].n = elem.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+
+                                                }
+                                                if (n3 < 0)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = n;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                n = n3;
+                                            }
+                                        }
+                                        break;
                                     case Keys.None:
-                                        Before(new Letter() { text = e.text });
+                                        local.panel.input = true;
+                                        var let = new Letter() { text = e.text };
+                                        Before(let);
+                                        if ((parent as Line).childstart == this) (parent as Line).childstart = let;
                                         var state4 = e.state.Clone();
                                         state4.elements[state4.elements.Count - 1] = this;
                                         local.selects[0] = local.selects[1] = new Select() { state = state4, n = 0 };
@@ -653,6 +1122,20 @@ namespace Cyclon
                             }
                             else
                             {
+                                switch (e.key)
+                                {
+                                    case Keys.Left:
+                                    case Keys.Up:
+                                        local.seln = 2;
+                                        local.selects[(local.seln + 1) % 2] = local.selects[local.seln];
+                                        return 1;
+                                    case Keys.Right:
+                                    case Keys.Down:
+                                        local.seln = 2;
+                                        local.selects[local.seln] = local.selects[(local.seln + 1) % 2];
+                                        return 1;
+                                }
+                                local.panel.input = true;
                                 var line = e.state.elements[e.state.elements.Count - 2];
                                 var line2 = line;
                             head:
@@ -690,13 +1173,24 @@ namespace Cyclon
         {
             return 1;
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get
+            if (type == LetterType.Kaigyou) return "\\n";
+            else return "";
+        }
+        public override string Text(Local local)
+        {
+            var str = "";
+            if (local.selects[0].state.elements.Last() == this)
             {
-                if (type == LetterType.Kaigyou) return "\\n";
-                else return "";
+                str += (char)('\uE000' + local.selects[0].n * 2);
             }
+            if (local.selects[1].state.elements.Last() == this)
+            {
+                str += (char)('\uE000' + local.selects[1].n * 2 + 1);
+            }
+            if (type == LetterType.End) return str;
+            return str + text;
         }
     }
     class CommentLet : Letter
@@ -937,166 +1431,7 @@ namespace Cyclon
             }
             else
             {
-                if (local.seln == 2) { }
-                else if (select)
-                {
-                    var sel2 = local.selects[(local.seln + 1) % 2];
-                    if (sel2.state.elements[sel2.state.n] == this)
-                    {
-                        local.seln = 2;
-                        var state = e.state.Clone();
-                        state.elements[state.elements.Count - 1] = this;
-                        local.selects[0] = local.selects[1] = new Select() { state = state, n = 0 };
-                        text = text.Substring(sel2.n);
-                        select = false;
-                        e.state.elements[e.state.elements.Count - 1] = next;
-                        return 0;
-                    }
-                    else
-                    {
-                        this.next.RemoveBefore();
-                        e.state.elements[e.state.elements.Count - 1] = next;
-                        return 1;
-                    }
-                }
-                else
-                {
-                    for (var i = 0; i < 2; i++)
-                    {
-                        if (local.selects[i].state.elements[local.selects[i].state.n] == this)
-                        {
-                            local.seln = i;
-                            if (key != null) key(e, local);
-                            if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
-                            {
-                                local.seln = 2;
-                                int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
-                                if (n1 > n2)
-                                {
-                                    var ins = n1;
-                                    n1 = n2;
-                                    n2 = ins;
-                                }
-                                switch (e.key)
-                                {
-                                    case Keys.Enter:
-                                        var line3 = new Line();
-                                        var line4 = e.state.elements[e.state.elements.Count - 2];
-                                        line3.AddRange(this.next);
-                                        line3.childend.Next(new Letter() { text = text.Substring(n2, text.Length - n2) });
-                                        text = text.Substring(0, n1);
-                                        this.next = line4.childend;
-                                        line4.childend.before = this;
-                                        line4.childend.Before(new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou });
-                                        var state = e.state.Clone();
-                                        state.elements[state.elements.Count - 1] = line3.childend.next;
-                                        local.selects[0] = local.selects[1] = new Select() { state = state , n = 0 };
-                                        line4.Next(line3);
-                                        line3.childstart = line3.childend.next;
-                                        break;
-                                    case Keys.Back:
-                                        if (n1 == n2)
-                                        {
-                                            if (n1 == 0)
-                                            {
-                                                var line = e.state.elements[e.state.elements.Count - 2];
-                                                if (this == line.childend.next)
-                                                {
-                                                    var line2 = line;
-                                                head:
-                                                    line2 = line2.before;
-                                                    if (line2.type == LetterType.ElemEnd)
-                                                    {
-                                                        e.state.elements[e.state.elements.Count - 1] = next;
-                                                        return 0;
-                                                    }
-                                                    else if (line2 is VirtualLine) goto head;
-                                                    else
-                                                    {
-                                                        line2.childend.RemoveBefore();
-                                                        line.FirstRange(line2.childend.next);
-                                                        var state2 = e.state.Clone();
-                                                        state2.elements[state2.elements.Count - 1] = this;
-                                                        local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
-                                                        e.state.Update();
-                                                        line2.next.RemoveBefore();
-                                                        e.state.elements[e.state.elements.Count - 1] = next;
-                                                        return 0;
-                                                    }
-
-                                                }
-                                                else
-                                                {
-                                                    if (before is Letter)
-                                                    {
-                                                        var letter = before as Letter;
-                                                        letter.text = letter.text.Substring(0, letter.text.Length - 1);
-                                                        break;
-                                                    }
-                                                    else throw new Exception();
-                                                }
-                                            }
-                                            else
-                                            {
-                                                text = text.Substring(0, n1 - 1) + text.Substring(n1, text.Length - n1 - 1);
-                                                var state3 = e.state.Clone();
-                                                state3.elements[state3.elements.Count - 1] = this;
-                                                local.selects[0] = local.selects[1] = new Select() { state = state3, n = n1 - 1 };
-                                                break;
-                                            }
-                                        }
-                                        else goto case Keys.None;
-                                    case Keys.Delete:
-                                        if (n1 == n2)
-                                        {
-                                            text = text.Substring(0, n1) + text.Substring(n1 + 1, text.Length - n1 - 1);
-                                            break;
-                                        }
-                                        else goto case Keys.None;
-                                    case Keys.None:
-                                        text = text.Substring(0, n1) + e.text + text.Substring(n2, text.Length - n2);
-                                        var state4 = e.state.Clone();
-                                        state4.elements[state4.elements.Count - 1] = this;
-                                        local.selects[0] = local.selects[1] = new Select() { state = state4, n = n1 + e.text.Length };
-                                        break;
-                                }
-                                e.state.Update();
-                                e.state.elements[e.state.elements.Count - 1] = next;
-                                return 1;
-                            }
-                            else
-                            {
-                                switch (e.key)
-                                {
-                                    case Keys.Enter:
-                                        var line = new Line();
-                                        var line2 = e.state.elements[e.state.elements.Count - 2];
-                                        line.AddRange(this.next);
-                                        this.next = line2.childend;
-                                        line2.childend.before = this;
-                                        text = text.Substring(0, local.selects[i].n);
-                                        var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
-                                        this.Next(kaigyou);
-                                        line2.Next(line);
-                                        line.childstart = line.childend.next;
-                                        e.state.elements[e.state.elements.Count - 1] = line2.childend;
-                                        e.state.Update();
-                                        select = true;
-                                        return 1;
-                                    case Keys.Back:
-                                    case Keys.Delete:
-                                    case Keys.None:
-                                        text = text.Substring(0, local.selects[i].n) + e.text;
-                                        break;
-                                }
-                                e.state.Update();
-                                e.state.elements[e.state.elements.Count - 1] = next;
-                                select = true;
-                                return 1;
-                            }
-                        }
-                    }
-                }
+                return base.Key(e, local, ref select);
             }
             e.state.elements[e.state.elements.Count - 1] = next;
             return 0;
@@ -1110,13 +1445,32 @@ namespace Cyclon
             state.elements[state.elements.Count - 1] = state.elements.Last().next;
             if (state.elements.Last().type == LetterType.ElemEnd) state.elements.RemoveAt(state.elements.Count - 1);
         }
-        public override string Text
+    }
+    class SelectLetter : Letter
+    {
+        public int seln;
+        public int n;
+        public SelectLetter(int n) : base()
         {
-            get
-            {
-                if (type == LetterType.End) return "";
-                return text;
-            }
+            seln = n % 2;
+            this.n = n / 2;
+            type = LetterType.Select;
+            single = true;
+        }
+        public override Element Measure(Measure m, Local local, ref int order)
+        {
+            Element nex = this;
+        head:
+            nex = nex.next;
+            if (nex.type == LetterType.Select) goto head;
+            local.selects[seln] = new Select() { state = m.state.Clone(), n = n };
+            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = nex;
+            next.RemoveBefore();
+            return null;
+        }
+        public override void Draw(Graphic g, Local local, ref bool select)
+        {
+            return;
         }
     }
     class Letter : Element
@@ -1270,16 +1624,19 @@ namespace Cyclon
                         if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
                         {
                             local.seln = 2;
+                            var seln = i;
                             int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
                             if (n1 > n2)
                             {
                                 var ins = n1;
                                 n1 = n2;
                                 n2 = ins;
+                                seln = (i + 1) % 2;
                             }
                             switch (e.key)
                             {
                                 case Keys.Enter:
+                                    local.panel.input = true;
                                     var line3 = new Line();
                                     var line4 = e.state.elements[e.state.elements.Count - 2];
                                     line3.AddRange(this.next);
@@ -1297,6 +1654,7 @@ namespace Cyclon
                                     line3.recompile = true;
                                     break;
                                 case Keys.Back:
+                                    local.panel.input = true;
                                     if (n1 == n2)
                                     {
                                         if (n1 == 0)
@@ -1349,13 +1707,540 @@ namespace Cyclon
                                     }
                                     else goto case Keys.None;
                                 case Keys.Delete:
+                                    local.panel.input = true;
                                     if (n1 == n2)
                                     {
                                         text = text.Substring(0, n1) + text.Substring(n1 + 1, text.Length - n1 - 1);
                                         break;
                                     }
                                     else goto case Keys.None;
+                                case Keys.Left:
+                                    if (n1 == n2)
+                                    {
+                                        if (n1 == 0)
+                                        {
+                                            var elem = local.selects[seln].state.elements.Last();
+                                            elem = elem.before;
+                                            var line = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] as Line;
+
+                                            Element body = null;
+                                            if (local.selects[seln].state.elements.Count >= 3) body = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                            if (body != null && elem.type == LetterType.ElemEnd && body.type == LetterType.CloneElement)
+                                            {
+                                                var clone = body as CloneElement;
+                                                if (line == clone.childstart)
+                                                {
+                                                    var elem01 = body;
+                                                head:
+                                                    elem01 = elem01.before;
+                                                    if (elem01.type == LetterType.Line || elem01.type == LetterType.VirtualLine)
+                                                    {
+                                                        local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = elem01;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem01.childend.before;
+                                                        local.selects[seln].n = Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem01.type == LetterType.CloneElement)
+                                                    {
+                                                        clone = elem01 as CloneElement;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = clone.childend.childend.before;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else { return 1; }
+                                                }
+                                            }
+                                            var line2 = line.before as Line;
+                                            if (elem.type == LetterType.ElemEnd || (line2 != null && elem == line2.childend))
+                                            {
+                                                if (line2 == null)
+                                                {
+                                                    if (line.before.type == LetterType.CloneElement)
+                                                    {
+                                                        var clone = line.before as CloneElement;
+                                                        var element = clone.childend.childend.before;
+                                                        local.selects[seln].state.elements.Add(element);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                                        local.selects[seln].n = element.Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    return 1;
+                                                }
+                                                else
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line2.childend.before;
+                                                    local.selects[seln].n = line2.childend.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                }
+                                            }
+                                            else
+                                            {
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                local.selects[seln].n = elem.Count() - 1;
+                                                local.selects[(seln + 1) % 2] = local.selects[seln];
+                                            }
+                                        }
+                                        else
+                                        {
+                                            local.selects[0].n--;
+                                            local.selects[1].n = local.selects[0].n;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                    }
+                                    break;
+                                case Keys.Right:
+                                    if (n1 == n2)
+                                    {
+                                        if (n1 == text.Length)
+                                        {
+                                            var elem = local.selects[seln].state.elements.Last();
+                                            elem = elem.next;
+                                            var line = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] as Line;
+
+                                            Element body = null;
+                                            if (local.selects[seln].state.elements.Count >= 3) body = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                            if (body != null && (elem.type == LetterType.ElemEnd || elem.type == LetterType.Kaigyou || elem.type == LetterType.End) && body.type == LetterType.CloneElement)
+                                            {
+                                                var clone = body as CloneElement;
+                                                if (line == clone.childend)
+                                                {
+                                                    var elem01 = body;
+                                                head:
+                                                    elem01 = elem01.next;
+                                                    if (elem01.type == LetterType.Line || elem01.type == LetterType.VirtualLine)
+                                                    {
+                                                        local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = elem01;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = (elem01 as Line).childstart;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem01.type == LetterType.CloneElement)
+                                                    {
+                                                        clone = elem01 as CloneElement;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = (clone.childstart as Line).childstart;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else { return 1; }
+                                                }
+                                            }
+                                            var line2 = line.next as Line;
+                                            if (elem.type == LetterType.Kaigyou || elem.type == LetterType.ElemEnd || elem == line.childstart)
+                                            {
+                                                if (line2 == null)
+                                                {
+                                                    if (line.next.type == LetterType.CloneElement)
+                                                    {
+                                                        var clone = line.next as CloneElement;
+                                                        var element = (clone.childstart as Line).childstart;
+                                                        local.selects[seln].state.elements.Add(element);
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    return 1;
+                                                }
+                                                else
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line.childstart;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+
+                                                }
+                                            }
+                                            else if (elem.type == LetterType.End)
+                                            {
+                                                return 1;
+                                            }
+                                            else
+                                            {
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                local.selects[seln].n = 1;
+                                                local.selects[(seln + 1) % 2] = local.selects[seln];
+                                            }
+                                        }
+                                        else
+                                        {
+                                            local.selects[0].n++;
+                                            local.selects[1].n = local.selects[0].n;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        local.selects[seln] = local.selects[(seln + 1) % 2];
+                                    }
+                                    break;
+                                case Keys.Up:
+                                    if (n1 == n2)
+                                    {
+                                        var line = local.selects[seln].state.elements.Last().parent as Line;
+                                        var line2 = line.before as Line;
+                                        Element body = null;
+                                        if (local.selects[seln].state.elements.Count >= 3) body = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                        var n = 0;
+                                        if (local.countn == -1)
+                                        {
+                                            for (var elem = line.childstart; ; elem = elem.next)
+                                            {
+                                                if (elem == local.selects[seln].state.elements.Last())
+                                                {
+                                                    n += local.selects[seln].n;
+                                                    break;
+                                                }
+                                                n += elem.Count();
+                                            }
+                                            local.countn = n;
+                                        }
+                                        else n = local.countn;
+                                        if (body != null && body.type == LetterType.CloneElement)
+                                        {
+                                            var clone = body as CloneElement;
+                                            if (line == clone.childstart)
+                                            {
+                                                var elem2 = clone.before;
+                                                if (elem2.type == LetterType.Line || elem2.type == LetterType.VirtualLine)
+                                                {
+                                                    line2 = elem2 as Line;
+                                                    local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line2.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                                else if (elem2.type == LetterType.CloneElement)
+                                                {
+                                                    clone = elem2 as CloneElement;
+                                                    line2 = clone.childend as Line;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line2.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                                else { return 1; }
+                                            }
+                                        }
+                                        if (line2 == null)
+                                        {
+                                            if (line.before.type == LetterType.CloneElement)
+                                            {
+                                                var clone = line.before as CloneElement;
+                                                local.selects[seln].state.elements.Add(null);
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childend;
+                                                line2 = clone.childend as Line;
+                                                for (var elem = line2.childstart; ; elem = elem.next)
+                                                {
+                                                    var n3 = n - elem.Count();
+                                                    if (elem.type == LetterType.Kaigyou)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem == line2.childend)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                        local.selects[seln].n = elem.before.Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+
+                                                    }
+                                                    if (n3 < 0)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = n;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    n = n3;
+                                                }
+                                            }
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line.childstart;
+                                            local.selects[seln].n = 0;
+                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                        }
+                                        else
+                                        {
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                            for (var elem = line2.childstart; ; elem = elem.next)
+                                            {
+                                                var n3 = n - elem.Count();
+                                                if (elem.type == LetterType.Kaigyou)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem == line2.childend)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                    local.selects[seln].n = elem.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+
+                                                }
+                                                if (n3 < 0)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = n;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                n = n3;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                    }
+                                    break;
+                                case Keys.Down:
+                                    if (n1 == n2)
+                                    {
+                                        var line = local.selects[seln].state.elements.Last().parent as Line;
+                                        var line2 = line.next as Line;
+                                        var n = 0;
+                                        if (local.countn == -1)
+                                        {
+                                            for (var elem = line.childstart; ; elem = elem.next)
+                                            {
+                                                if (elem == local.selects[seln].state.elements.Last())
+                                                {
+                                                    n += local.selects[seln].n;
+                                                    break;
+                                                }
+                                                n += elem.Count();
+                                            }
+                                            local.countn = n;
+                                        }
+                                        else n = local.countn;
+                                        Element body = null;
+                                        if (local.selects[seln].state.elements.Count >= 3) body = local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3];
+                                        if (body != null && body.type == LetterType.CloneElement)
+                                        {
+                                            var clone = body as CloneElement;
+                                            if (line == clone.childend)
+                                            {
+                                                var elem2 = clone.next;
+                                                if (elem2.type == LetterType.Line || elem2.type == LetterType.VirtualLine)
+                                                {
+                                                    line2 = elem2 as Line;
+                                                    local.selects[seln].state.elements.RemoveAt(local.selects[seln].state.elements.Count - 1);
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line2.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                                else if (elem2.type == LetterType.CloneElement)
+                                                {
+                                                    clone = elem2 as CloneElement;
+                                                    line2 = clone.childstart as Line;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                                    for (var elem = line2.childstart; ; elem = elem.next)
+                                                    {
+                                                        var n3 = n - elem.Count();
+                                                        if (elem.type == LetterType.Kaigyou)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = 0;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        else if (elem == line2.childend)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                            local.selects[seln].n = elem.before.Count() - 1;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        if (n3 < 0)
+                                                        {
+                                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                            local.selects[seln].n = n;
+                                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                            return 1;
+                                                        }
+                                                        n = n3;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (line2 == null)
+                                        {
+                                            if (line.next.type == LetterType.CloneElement)
+                                            {
+                                                var clone = line.next as CloneElement;
+                                                local.selects[seln].state.elements.Add(null);
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 3] = clone;
+                                                local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = clone.childstart;
+                                                line2 = clone.childstart as Line;
+                                                for (var elem = line2.childstart; ; elem = elem.next)
+                                                {
+                                                    var n3 = n - elem.Count();
+                                                    if (elem.type == LetterType.Kaigyou)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = 0;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    else if (elem == line2.childend)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                        local.selects[seln].n = elem.before.Count() - 1;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+
+                                                    }
+                                                    if (n3 < 0)
+                                                    {
+                                                        local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                        local.selects[seln].n = n;
+                                                        local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                        return 1;
+                                                    }
+                                                    n = n3;
+                                                }
+                                            }
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = line.childend.before;
+                                            local.selects[seln].n = line.childend.before.Count() - 1;
+                                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                                        }
+                                        else
+                                        {
+                                            local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 2] = line2;
+                                            for (var elem = line2.childstart; ; elem = elem.next)
+                                            {
+                                                var n3 = n - elem.Count();
+                                                if (elem.type == LetterType.Kaigyou)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = 0;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                else if (elem == line2.childend)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem.before;
+                                                    local.selects[seln].n = elem.before.Count() - 1;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+
+                                                }
+                                                if (n3 < 0)
+                                                {
+                                                    local.selects[seln].state.elements[local.selects[seln].state.elements.Count - 1] = elem;
+                                                    local.selects[seln].n = n;
+                                                    local.selects[(seln + 1) % 2] = local.selects[seln];
+                                                    return 1;
+                                                }
+                                                n = n3;
+                                            }
+                                        }
+
+                                    }
+                                    else
+                                    {
+                                        local.selects[seln] = local.selects[(seln + 1) % 2];
+                                    }
+                                    break;
                                 case Keys.None:
+                                    local.panel.input = true;
                                     text = text.Substring(0, n1) + e.text + text.Substring(n2, text.Length - n2);
                                     var state3 = e.state.Clone();
                                     state3.elements[state3.elements.Count - 1] = this;
@@ -1371,6 +2256,7 @@ namespace Cyclon
                             switch (e.key)
                             {
                                 case Keys.Enter:
+                                    local.panel.input = true;
                                     var line = new Line();
                                     var line2 = e.state.elements[e.state.elements.Count - 2];
                                     line.AddRange(this.next);
@@ -1385,9 +2271,20 @@ namespace Cyclon
                                     e.state.Update();
                                     select = true;
                                     return 1;
+                                case Keys.Left:
+                                case Keys.Up:
+                                    local.selects[(local.seln + 1) % 2] = local.selects[local.seln];
+                                    local.seln = 2;
+                                    return 1;
+                                case Keys.Right:
+                                case Keys.Down:
+                                    local.selects[local.seln] = local.selects[(local.seln + 1) % 2];
+                                    local.seln = 2;
+                                    return 1;
                                 case Keys.Back:
                                 case Keys.Delete:
                                 case Keys.None:
+                                    local.panel.input = true;
                                     text = text.Substring(0, local.selects[i].n) + e.text;
                                     break;
                             }
@@ -1411,15 +2308,22 @@ namespace Cyclon
             state.elements[state.elements.Count - 1] = state.elements.Last().next;
             if (state.elements.Last().type == LetterType.ElemEnd) state.elements.RemoveAt(state.elements.Count - 1);
         }
-        public override string Text
+        public override string Text(Local local)
         {
-            get {
-                return text;
+            var str = "";
+            if (local.selects[0].state.elements.Last() == this)
+            {
+                str += (char)('\uE000' + local.selects[0].n * 2);
             }
+            if (local.selects[1].state.elements.Last() == this)
+            {
+                str += (char)('\uE000' + local.selects[1].n * 2 + 1);
+            }
+            return str + text;
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get { return text; }
+            return text;
         }
     }
     enum LetterType
@@ -1447,7 +2351,10 @@ namespace Cyclon
         CloneElement,
         Cell,
         StringTag,
-        Sheet
+        Sheet,
+        Line,
+        VirtualLine,
+        Select
     }
     enum CheckType
     {

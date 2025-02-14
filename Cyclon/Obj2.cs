@@ -43,6 +43,8 @@ namespace Cyclon
             block2.vmap["Str"] = local.Str;
             block2.vmap["bool"] = local.Bool;
             block2.vmap["float"] = local.Float;
+            block2.vmap["MouseDown"] = local.MouseEvent;
+            block2.vmap["KeyDown"] = local.KeyEvent;
             local.blocks = new List<Block>();
             local.blocks.Add(block2);
             block2.exe(local);
@@ -865,7 +867,7 @@ namespace Cyclon
             }
             throw new Exception();
         }
-        public override string ToString()
+        public override string Text()
         {
             return value.ToString();
         }
@@ -2675,25 +2677,43 @@ namespace Cyclon
                 return new Null();
             }
         }
-        public Sheet output(Object model, Local local)
+        public Sheet Output(Object model, Local local)
         {
             if (stocks.ContainsKey(model))
             {
                 var vals = stocks[model];
                 var sheet = new Sheet();
+                var elem = sheet.childend;
+                bool first = true;
+                if (vals.Count == 0) return sheet;
+                foreach (var kv in vals[0].vmap)
+                {
+                    var cell = new Cell();
+                    cell.add(new Letter() { text = kv.Key, type = LetterType.Letter, recompile = true });
+                    cell.add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
+                    if (first)
+                    {
+                        cell.statuses.Add("y", new BoolVal(true) { cls = local.Bool });
+                        first = false;
+                    }
+                    elem.Next(cell);
+                    elem = cell;
+                }
                 foreach (var val in vals)
                 {
-                    bool first = true;
+                    first = true;
                     foreach (var kv in val.vmap)
                     {
                         var cell = new Cell();
-                        cell.add(new Letter() { text = kv.Value.Text(), type = LetterType.Letter, recompile = true });
+                        cell.add(new Letter() { text = kv.Value.Getter(local).Text(), type = LetterType.Letter, recompile = true });
+                        cell.add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
                         if (first)
                         {
                             cell.statuses.Add("y", new BoolVal(true) { cls = local.Bool });
                             first = false;
                         }
-                        sheet.add(cell);
+                        elem.Next(cell);
+                        elem = cell;
                     }
                 }
                 return sheet;

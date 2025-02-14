@@ -107,7 +107,7 @@ namespace Cyclon
                     element.next = line.childend;
                     line.childend.before = element;
                     var kaigyou = new Kaigyou() { text = "\n", name = "\n", type = LetterType.Kaigyou };
-                    line.childend.Next(kaigyou);
+                    line.childend.before.Next(kaigyou);
                     break;
                 }
                 else if (element.type == LetterType.ElemEnd) break;
@@ -199,7 +199,18 @@ namespace Cyclon
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
-            if (local.comments.Count > 0) local.comments.Last().Add(new Letter() { text = text, name = text, type = LetterType.Htm}); 
+            if (local.comments.Count > 0)
+            {
+                if (letter.before.type == LetterType.Select)
+                {
+                    local.comments.Last().Add(letter.before);
+                    if (letter.before.before.type == LetterType.Select)
+                    {
+                        local.comments.Last().Add(letter.before.before);
+                    }
+                }
+                local.comments.Last().Add(new Letter() { text = text, name = text, type = LetterType.Htm });
+            }
             return this;
         }
     }
@@ -399,7 +410,7 @@ namespace Cyclon
                 {
                     var func = new SignalFunction() { draw = val2 as CallBlock, name = word.name };
                     foreach (var b in local.blocks) func.blocks.Add(b);
-                    for (var i = 0; i < local.blocks.Count; i--)
+                    for (var i = local.blocks.Count - 1; i > 0; i--)
                     {
                         if (local.blocks[i].obj.type == ObjType.ServerFunction)
                         {
@@ -515,7 +526,7 @@ namespace Cyclon
         }
         public override Obj exe(Local local)
         {
-            local.blockslist.Add(new List<Block>());
+            local.blockslist.Add(blocks);
             var blk = draw.children[1] as Block;
             blk.obj = this;
             local.blocks.Add(blk);
@@ -621,6 +632,49 @@ namespace Cyclon
                             var block = val2.Clone().exe(local).Getter(local) as Block;
                             StoreAny(block, local);
                             n++;
+                        }
+                    }
+                    else
+                    {
+                        if (val2.type == ObjType.Dot)
+                        {
+                            n++;
+                            val2 = primary.children[n];
+                            if (val2.type == ObjType.Word)
+                            {
+                                var word2 = val2 as Word;
+                                n++;
+                                val2 = primary.children[n];
+                                if (word2.name == "Output")
+                                {
+                                    var comment = new Comment();
+                                    var comlet = new CommentLet();
+                                    var div = new Div();
+                                    comment.letter = comlet;
+                                    comlet.add(div);
+                                    div.add(Output(local.get(word.name), local));
+                                    return comment;
+                                }
+                                else if (word2.name == "Select")
+                                {
+                                    if (val2.type == ObjType.Bracket)
+                                    {
+                                        var blk = val2.exe(local).Getter(local) as Block;
+                                        var func = blk.rets[0] as Function;
+                                        var ftype = new FuncType(local.Bool);
+                                        ftype.draws.Add((Type)local.get(word.name));
+                                        if (TypeCheck.CheckCV(ftype, func, CheckType.Setter, local) == null) throw new Exception();
+                                        return Select(local.get(word.name), local, func);
+                                    }
+                                }
+                                else if (word2.name == "First")
+                                {
+                                    if (val2.type == ObjType.Bracket && val2.children.Count == 0)
+                                    {
+                                        return First(local.get(word.name), local);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

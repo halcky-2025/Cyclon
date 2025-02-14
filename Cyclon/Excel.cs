@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -166,33 +167,27 @@ namespace Cyclon
             k.basicexe(req, res, local);
             return false;
         }
-        public override string Text
+        public override string Text(Local local)
         {
-            get
+            var ret = "<&" + tag;
+            if (id != null) ret += " " + id;
+            foreach (var kv in statuses)
             {
-                var ret = "<&" + tag;
-                if (id != null) ret += " " + id;
-                foreach(var kv in statuses)
-                {
-                    ret += ",#" + kv.Key + " " + kv.Value.ToString();
-                }
-                ret += "|" + base.Text2 + " >";
-                return ret;
+                ret += ",#" + kv.Key + " " + kv.Value.Text();
             }
+            ret += "|" + base.Text2(local) + " >";
+            return ret;
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get
+            var ret = "<&" + tag;
+            if (id != null) ret += " " + id;
+            foreach (var kv in statuses)
             {
-                var ret = "<&" + tag;
-                if (id != null) ret += " " + id;
-                foreach (var kv in statuses)
-                {
-                    ret += ",#" + kv.Key + " " + kv.Value.ToString();
-                }
-                ret += "|" + base.Text2 + " >";
-                return ret;
+                ret += ",#" + kv.Key + " " + kv.Value.Text();
             }
+            ret += "|" + base.Text2(local) + " >";
+            return ret;
         }
     }
     class KeyEventObj : Val
@@ -202,6 +197,8 @@ namespace Cyclon
         {
             vmap = new Dictionary<string, Obj>();
             vmap["id"] = new Variable(local.Int) { value = new Number(0) { cls = local.Int } };
+            vmap["action"] = new Number((int)key.call) { cls = local.Int };
+            vmap["text"] = new StrObj(key.text) { cls = local.Str };
             this.key = key;
         }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
@@ -214,14 +211,7 @@ namespace Cyclon
                 {
                     var word = val2 as Word;
                     n++;
-                    if (word.name == "action")
-                    {
-                        return new Number((int)key.call) { cls = local.Int };
-                    }
-                    else if (word.name == "text")
-                    {
-                        return new StrObj(key.text) { cls = local.Str };
-                    }
+                    return vmap[word.name];
                 }
             }
             throw new Exception();
@@ -238,6 +228,9 @@ namespace Cyclon
         {
             vmap = new Dictionary<string, Obj>();
             vmap["id"] = new Variable(local.Int) { value = new Number(0) { cls = local.Int } };
+            vmap["action"] = new Number((int)mouse.call) { cls = local.Int };
+            vmap["x"] = new Number(mouse.x) { cls = local.Int };
+            vmap["y"] = new Number(mouse.y) { cls = local.Int };
             this.mouse = mouse;
         }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
@@ -248,20 +241,7 @@ namespace Cyclon
                 val2 = primary.children[n];
                 if (val2.type == ObjType.Word)
                 {
-                    var word = val2 as Word;
-                    n++;
-                    if (word.name == "action")
-                    {
-                        return new Number((int)mouse.call) { cls = local.Int };
-                    }
-                    else if (word.name == "x")
-                    {
-                        return new Number(mouse.x) { cls = local.Int };
-                    }
-                    else if (word.name == "y")
-                    {
-                        return new Number(mouse.x) { cls = local.Int };
-                    }
+                    return vmap["word"];
                 }
             }
             throw new Exception();
@@ -273,6 +253,7 @@ namespace Cyclon
     }
     class Sheet : Div
     {
+        public const String alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         public Dictionary<int, RowData> rowdatas = new Dictionary<int, RowData>();
         public Dictionary<int, ColData> coldatas = new Dictionary<int, ColData>();
         public SortedDictionary<int, SortedDictionary<int, Cell>> cells = new SortedDictionary<int, SortedDictionary<int, Cell>>();
@@ -283,49 +264,43 @@ namespace Cyclon
             xtype = SizeType.Scroll;
             ytype = SizeType.Scroll;
             size.X = 500;
-            size.Y = 500;
+            size.Y = 300;
         }
-        public override string Text
+        public override string Text(Local local)
         {
-            get
+            var ret = "<&" + tag;
+            if (id != null) ret += " " + id;
+            foreach (var kv in statuses)
             {
-                var ret = "<&" + tag;
-                if (id != null) ret += " " + id;
-                foreach (var kv in statuses)
-                {
-                    ret += ",#" + kv.Key + " " + kv.Value.ToString();
-                }
-                ret += "|";
-                foreach(var cs in cells)
-                {
-                    foreach(var cell in cs.Value)
-                    {
-                        ret += cell.Value.Text2;
-                    }
-                }
-                return ret + " >";
+                ret += ",#" + kv.Key + " " + kv.Value.ToString();
             }
+            ret += "|";
+            foreach (var cs in cells)
+            {
+                foreach (var cell in cs.Value)
+                {
+                    ret += cell.Value.Text2(local);
+                }
+            }
+            return ret + " >";
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get
+            var ret = "<&" + tag;
+            if (id != null) ret += " " + id;
+            foreach (var kv in statuses)
             {
-                var ret = "<&" + tag;
-                if (id != null) ret += " " + id;
-                foreach (var kv in statuses)
-                {
-                    ret += ",#" + kv.Key + " " + kv.Value.Text();
-                }
-                ret += "|";
-                foreach (var cs in cells)
-                {
-                    foreach (var cell in cs.Value)
-                    {
-                        ret += cell.Value.Text2;
-                    }
-                }
-                return ret + " >";
+                ret += ",#" + kv.Key + " " + kv.Value.Text();
             }
+            ret += "|";
+            foreach (var cs in cells)
+            {
+                foreach (var cell in cs.Value)
+                {
+                    ret += cell.Value.Text2(local);
+                }
+            }
+            return ret + " >";
         }
         public void add(int x, int y, Element element)
         {
@@ -391,11 +366,11 @@ namespace Cyclon
                 }
                 elem.next.RemoveBefore();
             }
-            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel };
+            var measure = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel, state = m.state };
             if (font != null) measure.font = font;
             var font0 = measure.font;
-            measure.x += margins[1] + paddings[1];
-            measure.y += margins[0] + paddings[0];
+            measure.x += margins[1] + paddings[1] + 60f;
+            measure.y += margins[0] + paddings[0] + 18f;
             measure.sizex = size.X - margins[3] - paddings[3];
             measure.sizey = size.Y - margins[2] - paddings[2];
             var n0 = 0;
@@ -428,7 +403,9 @@ namespace Cyclon
                         }
                     }
                     var measure2 = new Measure() { x = 0, y = 0, px = 0, py = 0, xtype = xtype, ytype = ytype, font = m.font, g = m.g, panel = m.panel };
+                    measure2.state.elements.Add(kv2.Value);
                     kv2.Value.Measure(measure2, local, ref order);
+                    measure2.state.elements.RemoveAt(measure2.state.elements.Count - 1);
                     if (rowdatas.ContainsKey(n0))
                     {
                         if (rowdatas[n0].height < kv2.Value.size2.Y) rowdatas[n0].height = kv2.Value.size2.Y + 2;
@@ -437,7 +414,7 @@ namespace Cyclon
                 }
                 measure.px = measure.x;
             }
-            pos = new Point((int)m.x, (int)m.y);
+            pos = new Point((int)m.x, (int)(m.y + m.py));
             size2 = new Point((int)(measure.sizex + margins[3] + paddings[3] + size.X + scroll.X + 101), (int)(measure.py + margins[2] + paddings[2] + size.Y + scroll.Y + 101));
             if (xtype == SizeType.Scroll) size2.Y += 10;
             if (ytype == SizeType.Scroll) size2.X += 10;
@@ -450,30 +427,45 @@ namespace Cyclon
             var py = g.py;
             g.px += margins[1] + paddings[1];
             g.py += margins[0] + paddings[0];
-            using (Bitmap bitmap = new Bitmap((int)size2.X, (int)size2.Y))
+            using (Bitmap bitmap = new Bitmap((int)size.X, (int)size.Y))
             {
                 using (Graphics g2 = Graphics.FromImage(bitmap))
                 {
-                    var height = 0f;
-                    var width = 0f;
+                    var height = 18f;
+                    var width = 60f;
                     var n = 0;
+                    g2.FillRectangle(Brushes.LightGreen, new RectangleF(60f, 0, size.X - 60f, 18f));
+                    g2.DrawLine(Pens.Gray, new PointF(60f, 0), new PointF(60f, size.Y));
                     for (n = 0; n < size.X + scroll.X; n++)
                     {
-                        if (scroll.X <= width)
-                        {
-                            g2.DrawLine(Pens.Gray, new PointF(width, scroll.Y), new PointF(width, scroll.Y + size.Y));
-                        }
+                        if (scroll.X + size.X <= width) break;
+                        var width2 = 90f;
                         if (coldatas.ContainsKey(n))
                         {
-                            width += coldatas[n].width;
+                            width2 = coldatas[n].width;
                         }
-                        else
+                        if (scroll.X + 60f <= width)
                         {
-                            width += 90f;
+                            var ret = "";
+                            var n2 = n;
+                         head:
+                            ret = (alpha[n2 % alpha.Length]).ToString() + ret;
+                            if (n2 >= alpha.Length)
+                            {
+                                n2 /= alpha.Length;
+                                n2--;
+                                goto head;
+                            }
+                            g2.DrawString(ret, g.font, Brushes.Black, width + (width2 - 7.5f * ret.Length) / 2 - scroll.X, 0);
+                            g2.DrawLine(Pens.Gray, new PointF(width - scroll.X, 0), new PointF(width - scroll.X, size.Y));
                         }
+                        width += width2;
                     }
-                    width = 0;
+                    width = 60f;
                     var g3 = new Graphic() { g = g2, font = g.font };
+                    g3.px += 60f;
+                    g3.py += 18f;
+                    g2.FillRectangle(Brushes.LightGreen, new RectangleF(0, 18f, 60f, size.Y - 18f));
                     for (var n0 = 0; height < size.Y + scroll.Y; n0++)
                     {
                         var height2 = 18f;
@@ -485,19 +477,25 @@ namespace Cyclon
                         {
                             height2 = 18f;
                         }
-                        g2.DrawLine(Pens.Gray, new PointF(scroll.X, height), new PointF(scroll.X + size.X, height));
-                        if (scroll.Y <= height)
+                        if (scroll.Y + size.Y <= height) break;
+                        else if (scroll.Y + 18f <= height)
                         {
+                            g2.DrawLine(Pens.Gray, new PointF(0, height - scroll.Y), new PointF(size.X, height - scroll.Y));
+                            g2.DrawString((n0 + 1).ToString(), g.font, Brushes.Black, 30f - (n0 + 1).ToString().Length * 7.5f / 2, height - scroll.Y);
                             for (n = 0; n < size.X + scroll.X; n++)
                             {
                                 var width2 = 90f;
                                 if (coldatas.ContainsKey(n)) width2 = coldatas[n].width;
-                                if (cells.ContainsKey(n0) && cells[n0].ContainsKey(n))
+                                if (scroll.X + size.X <= width) break;
+                                if (scroll.X + 60f <= width)
                                 {
-                                    var g4 = new Graphic() { g = g2, font = g.font, px = 0, py = 0, x = g3.px + 1, y = g3.py + 1 };
-                                    cells[n0][n].size.X = width2;
-                                    cells[n0][n].Draw(g4, local, ref select);
-                                    g2.DrawLine(Pens.Gray, new PointF(width, height), new PointF(width, height + height2));
+                                    if (cells.ContainsKey(n0) && cells[n0].ContainsKey(n))
+                                    {
+                                        var g4 = new Graphic() { g = g2, font = g.font, px = 0, py = 0, x = g3.px + 1 - scroll.X, y = g3.py + 1 - scroll.Y};
+                                        cells[n0][n].size.X = width2 - 1;
+                                        cells[n0][n].Draw(g4, local, ref select);
+                                        g2.DrawLine(Pens.Gray, new PointF(width - scroll.X, height - scroll.Y), new PointF(width - scroll.X, height + height2 - scroll.Y));
+                                    }
                                 }
                                 g3.px += width2;
                                 width += width2;
@@ -505,8 +503,8 @@ namespace Cyclon
                         }
                         g3.py += height2;
                         height += height2;
-                        g3.px = g3.x;
-                        width = 0;
+                        g3.px = g3.x + 60f;
+                        width = 60f;
                     }
                 }
                 if (xtype == SizeType.Auto || xtype == SizeType.Break)
@@ -517,7 +515,7 @@ namespace Cyclon
                     }
                     else
                     {
-                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, scroll.Y, bitmap.Width, size.Y), GraphicsUnit.Pixel);
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, bitmap.Width, size.Y), new RectangleF(0, 0, bitmap.Width, size.Y), GraphicsUnit.Pixel);
                         if (ytype == SizeType.Scroll)
                         {
                             g.g.FillRectangle(Brushes.LightGray, new RectangleF(px + size.X - 10, py, 10, size.Y - 12));
@@ -529,11 +527,11 @@ namespace Cyclon
                 {
                     if (ytype == SizeType.Auto)
                     {
-                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, bitmap.Height), new RectangleF(scroll.X, 0, size.X, bitmap.Height), GraphicsUnit.Pixel);
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, bitmap.Height), new RectangleF(0, 0, size.X, bitmap.Height), GraphicsUnit.Pixel);
                     }
                     else
                     {
-                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(scroll.X, scroll.Y, size.X, size.Y), GraphicsUnit.Pixel);
+                        g.g.DrawImage(bitmap, new RectangleF(g.x + g.px, g.y + g.py, size.X, size.Y), new RectangleF(0,  0, size.X, size.Y), GraphicsUnit.Pixel);
                         if (ytype == SizeType.Scroll)
                         {
                             g.g.FillRectangle(Brushes.LightGray, new RectangleF(px + size.X - 10, py, 10, size.Y - 12));
@@ -562,7 +560,7 @@ namespace Cyclon
                             down = e,
                             capture = (c, e) =>
                             {
-                                scroll.X = x + (e.x - c.down.x) * size2.X / size.X;
+                                scroll.X = x + (e.basepos.X - c.down.basepos.X) * size2.X / size.X;
                                 if (scroll.X > size2.X - size.X) scroll.X = size2.X - size.X;
                                 if (scroll.X < 0) scroll.X = 0;
                                 size2.X = size.X + scroll.X + 100;
@@ -586,7 +584,7 @@ namespace Cyclon
                             down = e,
                             capture = (c, e) =>
                             {
-                                scroll.Y = y + (e.y - c.down.y) * size2.Y / size.Y;
+                                scroll.Y = y + (e.basepos.Y - c.down.basepos.Y) * size2.Y / size.Y;
                                 if (scroll.Y > size2.Y - size.Y) scroll.Y = size2.Y - size.Y;
                                 if (scroll.Y < 0) scroll.Y = 0;
                                 size2.Y = size.Y + scroll.Y + 100;
@@ -598,8 +596,85 @@ namespace Cyclon
                     return -1;
                 }
             }
-            e.x += (int)scroll.X;
-            e.y += (int)scroll.Y;
+            if (e.y < 18)
+            {
+                e.x += (int)scroll.X - 60;
+                e.y += (int)scroll.Y - 18;
+                var width3 = 0f;
+                for (var n0 = 0; width3 < size.X + scroll.X; n0++)
+                {
+                    var width2 = 90f;
+                    if (coldatas.ContainsKey(n0))
+                    {
+                        width2 = coldatas[n0].width;
+                    }
+                    else
+                    {
+                        coldatas[n0] = new ColData() { width = 90f };
+                    }
+                    width3 += width2;
+                    if (-2 + width3 <= e.x && e.x <= width3 + 2)
+                    {
+                        var col = coldatas[n0];
+                        var width4 = col.width;
+                        if (e.call == MouseCall.MouseDown)
+                        {
+                            local.panel.capture = new Capture()
+                            {
+                                down = e,
+                                capture = (c, e) =>
+                                {
+                                    col.width = width4 + (e.basepos.X - c.down.basepos.X);
+                                    return true;
+                                }
+                            };
+                            Form1.SetCapture(local.panel.Handle);
+                        }
+                    }
+                }
+            }
+            else if (e.x < 60)
+            {
+                e.x += (int)scroll.X - 60;
+                e.y += (int)scroll.Y - 18;
+                var height3 = 0f;
+                for (var n0 = 0; height3 < size.Y + scroll.Y; n0++)
+                {
+                    var height2 = 18f;
+                    if (rowdatas.ContainsKey(n0))
+                    {
+                        height2 = rowdatas[n0].height;
+                    }
+                    else
+                    {
+                        rowdatas[n0] = new RowData() { height = 18f };
+                    }
+                    height3 += height2;
+                    if (-2 + height3 <= e.y && e.y <= height3 + 2)
+                    {
+                        var row = rowdatas[n0];
+                        var height4 = row.height;
+                        if (e.call == MouseCall.MouseDown)
+                        {
+                            local.panel.capture = new Capture()
+                            {
+                                down = e,
+                                capture = (c, e) =>
+                                {
+                                    row.height = height4 + (e.basepos.Y - c.down.basepos.Y);
+                                    return true;
+                                }
+                            };
+                            Form1.SetCapture(local.panel.Handle);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                e.x += (int)scroll.X - 60;
+                e.y += (int)scroll.Y - 18;
+            }
             var ret = -1;
             var select = false;
             if (mouse != null) mouse(e, local.local);
@@ -628,6 +703,8 @@ namespace Cyclon
                             }
                             if (cells[n0].ContainsKey(n))
                             {
+                                e.x -= (int)width;
+                                e.y -= (int)height;
                                 e.state.elements.Add(cells[n0][n]);
                                 cells[n0][n].Mouse(e, local);
                             }
@@ -672,23 +749,83 @@ namespace Cyclon
         {
             if (select) select = false;
             var go = false;
+            var seln = -1;
             foreach(var cs in cells) {
                 foreach (var element in cs.Value.Values)
                 {
                     if (local.selects[0].state.elements[local.selects[0].state.n] == element)
                     {
                         local.selects[0].state.n++;
+                        seln = 0;
                         go = true;
                     }
                     if (local.selects[1].state.elements[local.selects[1].state.n] == element)
                     {
                         local.selects[1].state.n++;
+                        seln = 1;
                         go = true;
                     }
                     if (select || go)
                     {
+                        bool move = false;
+                        int dx = 0, dy = 0;
+                        switch(e.key)
+                        {
+                            case Keys.Left:
+                                move = true;
+                                dx = -1;
+                                break;
+                            case Keys.Right:
+                                move = true;
+                                dx = 1;
+                                break;
+                            case Keys.Up:
+                                move = true;
+                                dy = -1;
+                                break;
+                            case Keys.Down:
+                                move = true;
+                                dy = 1;
+                                break;
+                        }
+                        if (move)
+                        {
+                            var cell = element as Cell;
+                            var x = (cell.statuses["x"] as Number).value + dx;
+                            var y = (cell.statuses["y"] as Number).value + dy;
+                            if (x < 0 || y < 0) return 0;
+                            if (!cells.ContainsKey(y))
+                            {
+                                cells[y] = new SortedDictionary<int, Cell>();
+                            }
+                            if (!cells[y].ContainsKey(x))
+                            {
+                                var div = new Cell() { background = Brushes.White };
+                                div.statuses.Add("x", new Number(x));
+                                div.statuses.Add("y", new Number(y));
+                                div.add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
+                                cells[y][x] = div;
+                            }
+                            Element cell2 = cells[y][x];
+                            local.selects[seln].state.elements[local.selects[seln].state.n - 1] = cell2;
+                            for(var i = local.selects[seln].state.elements.Count - 1; i >= local.selects[seln].state.n; i--)
+                            {
+                                local.selects[seln].state.elements.RemoveAt(i);
+                            }
+                            head:
+                            local.selects[seln].state.elements.Add(cell2.childend.next);
+                            if (!cell2.childend.next.single)
+                            {
+                                cell2 = cell2.childend.next;
+                                goto head;
+                            }
+                            local.selects[seln].n = 0;
+                            local.selects[(seln + 1) % 2] = local.selects[seln];
+                            return 0;
+                        }
                         e.state.elements.Add(element);
                         element.Key(e, local, ref select);
+                        if (local.seln == 2) return 0;
                         e.state.elements.RemoveAt(e.state.elements.Count - 1);
                         go = false;
                     }
@@ -926,13 +1063,13 @@ namespace Cyclon
         {
             state.elements[state.elements.Count - 1] = state.elements.Last().next;
         }
-        public override string Text
+        public override string Text(Local local)
         {
-            get { return ""; }
+            return "";
         }
-        public override string Text2
+        public override string Text2(Local local)
         {
-            get { return ""; }
+            return "";
         }
         public override Element Measure(Measure m, Local local, ref int order)
         {
@@ -1131,6 +1268,7 @@ namespace Cyclon
                 if (select || go)
                 {
                     element.Key(e, local, ref select);
+                    if (local.seln == 2) return 0;
                     go = false;
                 }
                 if (element == childend) break;
