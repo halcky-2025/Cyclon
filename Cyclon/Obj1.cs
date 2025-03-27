@@ -33,6 +33,17 @@ namespace Cyclon
         {
             this.type = type;
         }
+        public static Type Error(ObjType type, Letter let, String error)
+        {
+            if (type == ObjType.Error)
+            {
+            }
+            else if (type == ObjType.NG)
+            {
+
+            }
+            return new Type(type) { let = let, error = error };
+        }
         public virtual Obj exe(Local local)
         {
             throw new Exception();
@@ -64,8 +75,12 @@ namespace Cyclon
             return "";
 
         }
+        public virtual Obj Hokan(Obj val2, float p, Local local)
+        {
+            return this;
+        }
     }
-    class Primary : Obj
+    partial class Primary : Obj
     {
         public SingleOp singleop;
         public Primary() : base(ObjType.Primary)
@@ -114,6 +129,7 @@ namespace Cyclon
                     case ObjType.Signal:
                     case ObjType.ServerClient:
                     case ObjType.Dolor:
+                    case ObjType.Mountain:
                         if (val1 == null)
                         {
                             val1 = children[i].Clone().exep(ref i, local, this);
@@ -162,6 +178,7 @@ namespace Cyclon
                         op = singleop as SingleOp;
                         if (val1 != children.Last()) val1 = val1.ope(str, local, null); break;
                     default:
+                        val1 = val1.Getter(local);
                         val1 = val1.ope(str, local, null); break;
                 }
             }
@@ -194,6 +211,42 @@ namespace Cyclon
             this.labels = labels;
         }
     }
+    class TextLocal: Local
+    {
+        public History history = new History();
+        public TextLocal()
+        {
+            Recompile = Form1.Compile;
+        }
+        public override int Key(KeyEvent e, Local local, ref bool select)
+        {
+            if (e.ctrl)
+            {
+                switch(e.key)
+                {
+                    case Keys.Y:
+                        var go = history.Go();
+                        if (go == null) break;
+                        setText(go, local);
+                        //var item = form.Start(local);
+                        //item.exe(local);
+                        panel.input = true;
+                        return -1;
+                    case Keys.Z:
+                        var back = history.Back();
+                        if (back == null) break;
+                        setText(back, local);
+                        //var item = form.Start(local);
+                        //item.exe(local);
+                        panel.input = true;
+                        return -1;
+                }
+            }
+            var ret = base.Key(e, local, ref select);
+            if (panel.input == true) history.Add(Text(local));
+            return ret;
+        }
+    }
     partial class Local: Element
     {
         public RichTextPanel panel;
@@ -206,12 +259,13 @@ namespace Cyclon
         public RichTextBox console;
         public List<OpeFunc> operators = new List<OpeFunc>();
         public List<List<Block>> blockslist = new List<List<Block>>();
-        public ModelObj Int = new ModelObj() { initial = true };
-        public ModelObj Str = new ModelObj() { initial = true };
-        public ModelObj Bool = new ModelObj() { initial = true };
-        public ModelObj Float = new ModelObj() { initial = true };
-        public ModelObj MouseEvent = new ModelObj() { initial = true };
-        public ModelObj KeyEvent = new ModelObj() { initial = true };
+        public ModelObj Object = new ModelObj() { initial = true, letter = new Letter() { name = "object" } };
+        public ModelObj Int = new ModelObj() { initial = true, letter = new Letter() { name = "int" } };
+        public ModelObj Str = new ModelObj() { initial = true, letter = new Letter() { name = "Str" } };
+        public ModelObj Bool = new ModelObj() { initial = true, letter = new Letter() { name = "bool" } };
+        public ModelObj Float = new ModelObj() { initial = true, letter = new Letter() { name = "float" } };
+        public ModelObj MouseEvent = new ModelObj() { initial = true, letter = new Letter() { name = "MouseEvent" } };
+        public ModelObj KeyEvent = new ModelObj() { initial = true, letter = new Letter() { name = "KeyEvent" } };
         public Gene gene = new Gene();
         public Block block;
         public Dictionary<String, Label> labelmap = new Dictionary<string, Label>();
@@ -220,17 +274,34 @@ namespace Cyclon
         public CommentLet comlet;
         public List<CommentLet> comments = new List<CommentLet>();
         public Dictionary<String, Obj> sigmap = new Dictionary<string, Obj>();
-        public Vision vision;
-        public Local local;
+        public List<AnimationFunction> animations = new List<AnimationFunction>();
+        public Element letter;
+        public SortedList<String, Obj> kouhos;
+        public List<Action> calls = new List<Action>();
+        public Local local
+        {
+            get
+            {
+                return panel.form.local;
+            }
+        }
+        public Vision vision
+        {
+            get
+            {
+                return panel.form.vis;
+            }
+        }
         public Local()
         {
+            childend.Before(new Kouho() { position = Position.Absolute });
             selects[0].state = selects[1].state = new State();
             selects[0].state.elements.Add(new EndElement(null));
             Float.extends.Add(Int);
             operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.Equal, LetterType.Colon, LetterType.In} });
             operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.MoreEqual, LetterType.MoreThan, LetterType.LessEqual, LetterType.LessThan, LetterType.EqualEqual, LetterType.NotEqual } });
             operators.Add(new OpeFunc() { types = new LetterType[]{ LetterType.Plus, LetterType.Minus } });
-            operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.Mul, LetterType.Div } });
+            operators.Add(new OpeFunc() { types = new LetterType[] { LetterType.Mul, LetterType.Div, LetterType.Percent } });
         }
         public void Setid()
         {
@@ -286,6 +357,10 @@ namespace Cyclon
     class Vision: Local
     {
         public Dictionary<String, Div> emap = new Dictionary<string, Div>();
+        public Vision()
+        {
+            Recompile = Form1.Compile;
+        }
         public Div GetById(String id)
         {
             if (emap.ContainsKey(id))
@@ -319,25 +394,49 @@ namespace Cyclon
                                 emap[div.id] = div;
                                 if (elem2 != null)
                                 {
-                                    div.SetStatus(elem2);
-                                    if (elem.type == LetterType.Sheet || elem2.type == LetterType.Sheet) {
+                                    div.SetStatus(elem2, local);
+                                    if (elem.type == LetterType.Sheet || elem2.type == LetterType.Sheet)
+                                    {
                                         var sheet = elem as Sheet;
                                         var sheet_old = elem2 as Sheet;
                                         sheet.cells = sheet_old.cells;
+                                        sheet.rowdatas = sheet_old.rowdatas;
+                                        sheet.coldatas = sheet_old.coldatas;
                                         sheet.x = sheet_old.x;
                                         sheet.y = sheet_old.y;
+                                        sheet.history = new SheetHistory();
                                     }
-                                    else div.FirstRange(elem2.childend.next);
                                     div.scroll.X = elem2.scroll.X;
                                     div.scroll.Y = elem2.scroll.Y;
-                                    if (childend == owner) div.next.RemoveBefore(); 
-                                    elem2.Next(div);
-                                    div.RemoveBefore();
+                                    if (owner != this.childend) div.next.RemoveBefore();
+                                    if (div.position == Position.Absolute || div.position == Position.Fixed)
+                                    {
+                                        elem2.next.RemoveBefore();
+                                        this.childend.Before(div);
+                                    }
+                                    else
+                                    {
+                                        elem2.Next(div);
+                                        div.RemoveBefore();
+                                    }
+                                    AddElem(elem.childend, elem.childend);
+                                    div.FirstRange(elem2.childend.before);
+                                    div.sop = null;
                                     continue;
                                 }
-                                else if (childend != owner) owner.Before(elem);
+                                else if (div.position == Position.Absolute || div.position == Position.Fixed)
+                                {
+                                    div.next.RemoveBefore();
+                                    this.childend.Before(div);
+                                }
+                                else if (owner == this.childend) this.childend.Before(elem);
                             }
-                            else if (childend != owner) owner.Before(elem);
+                            else if (div.position == Position.Absolute || div.position == Position.Fixed)
+                            {
+                                div.next.RemoveBefore();
+                                this.childend.Before(div);
+                            }
+                            else if (owner == this.childend) this.childend.Before(elem);
                             div.sop = null;
                         }
                         else if (div.sop == "*")
@@ -348,14 +447,27 @@ namespace Cyclon
                                 emap[div.id] = div;
                                 if (elem2 != null)
                                 {
-                                    div.SetStatus(elem2);
+                                    div.SetStatus(elem2, local);
                                     div.scroll.X = elem2.scroll.X;
                                     div.scroll.Y = elem2.scroll.Y;
-                                    if (childend == owner) div.next.RemoveBefore();
-                                    elem2.Next(div);
-                                    div.RemoveBefore();
+                                    if (owner != this.childend) div.next.RemoveBefore();
+                                    if (div.position == Position.Absolute || div.position == Position.Fixed)
+                                    {
+                                        elem2.next.RemoveBefore();
+                                        childend.Before(div);
+                                    }
+                                    else
+                                    {
+                                        elem2.Next(div);
+                                        div.RemoveBefore();
+                                    }
                                 }
-                                else if (childend != owner) owner.Before(elem);
+                                else if (div.position == Position.Absolute || div.position == Position.Fixed)
+                                {
+                                    div.next.RemoveBefore();
+                                    this.childend.Before(div);
+                                }
+                                else if (owner == this.childend) owner.Before(elem);
                             }
                             else if (childend != owner) owner.Before(elem);
                             div.sop = null;
@@ -376,19 +488,31 @@ namespace Cyclon
                             {
                                 div.scroll.X = elem2.scroll.X;
                                 div.scroll.Y = elem2.scroll.Y;
-                                if (childend == owner) div.next.RemoveBefore();
-                                elem2.Next(div);
-                                div.RemoveBefore();
+                                if (owner != this.childend) div.next.RemoveBefore();
+                                if (div.position == Position.Absolute || div.position == Position.Fixed)
+                                {
+                                    elem2.next.RemoveBefore();
+                                    this.childend.Before(div);
+                                }
+                                else
+                                {
+                                    elem2.Next(div);
+                                    div.RemoveBefore();
+                                }
                             }
-                            else if (childend != owner) owner.Before(elem);
+                            else if (div.position == Position.Absolute || div.position == Position.Fixed)
+                            {
+                                div.next.RemoveBefore();
+                                this.childend.Before(div);
+                            }
+                            else if (owner == this.childend) this.childend.Before(elem);
                         }
-                        else if (childend != owner) owner.Before(elem);
+                        else if (owner == this.childend) this.childend.Before(elem);
                     }
-                    AddElem(elem.childend, elem.childend);
                 }
                 else
                 {
-                    if (childend != owner){owner.Before(elem);}
+                    if (owner == this.childend){ this.childend.Before(elem);}
                 }
             }
         }
@@ -437,7 +561,23 @@ namespace Cyclon
         Comment2,
         Clones,
         Sheet,
-        Cell
+        Cell,
+        Mountain,
+        AndBlock,
+        Sum,
+        Question,
+        LineraFunction,
+        AnimationFunction,
+        Transition,
+        Span,
+        Wait,
+        Error,
+        NG,
+        IfBlock,
+        Any,
+        TypeWord,
+        StockType,
+        CommentType
     }
     enum Accesor
     {
@@ -466,9 +606,14 @@ namespace Cyclon
             }
             else
             {
-                if (local.selects[0].state.elements.Last() == this || local.selects[1].state.elements.Last() == this)
+                if (local.selects[0].state.elements.Last() == this && local.selects[1].state.elements.Last() == this)
                 {
-                    g.g.FillRectangle(Brushes.LightGray, new RectangleF(pos.X, pos.Y, 1, size2.Y));
+                    g.g.FillRectangle(Brushes.LightGray, new RectangleF(pos2.X, pos2.Y, 1, size2.Y));
+                }
+                else if (local.selects[0].state.elements.Last() == this || local.selects[1].state.elements.Last() == this)
+                {
+                    g.g.FillRectangle(Brushes.LightGray, new RectangleF(pos2.X, pos2.Y, 1, size2.Y));
+                    select = true;
                 }
                 g.px += 1;
             }
@@ -487,7 +632,7 @@ namespace Cyclon
                     line.update = true;
                 }
             }
-            pos = new PointF(m.x + m.px, m.y + m.py);
+            pos2 = new PointF(m.x + m.px, m.y + m.py);
             m.px += 1;
             if (m.h < 16) m.h = 16;
             size2.Y = m.h;
@@ -504,6 +649,61 @@ namespace Cyclon
             {
                 return this;
             }
+        }
+        public override void SelectExe(SelectE e, Local local, ref bool select)
+        {
+            if (local.comlet != null && type == LetterType.End)
+            {
+                local.comlet = null;
+            }
+            else if (local.comlet != null)
+            {
+            }
+            else
+            {
+                if (local.seln == 2) { }
+                else if (select)
+                {
+                    var sel2 = local.selects[(local.seln + 1) % 2];
+                    if (sel2.state.elements[sel2.state.n] == this)
+                    {
+                        e.Select(e, this, null, sel2);
+                        local.seln = 2;
+                        select = false;
+                    }
+                    else
+                    {
+                        e.Select(e, this, null, null);
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < 2; i++)
+                    {
+                        if (local.selects[i].state.elements[local.selects[i].state.n] == this)
+                        {
+                            local.seln = i;
+                            var seln = i;
+                            if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
+                            {
+                                e.Select(e, this, local.selects[i], local.selects[(i + 1) % 2]);
+                                e.state.elements[e.state.elements.Count - 1] = next;
+                                local.seln = 2;
+                                return;
+                            }
+                            else
+                            {
+                                e.Select(e, this, local.selects[i], null);
+                                e.state.elements[e.state.elements.Count - 1] = next;
+                                select = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            e.state.elements[e.state.elements.Count - 1] = next;
+            return;
         }
         public override int Key(KeyEvent e, Local local, ref bool select)
         {
@@ -570,6 +770,7 @@ namespace Cyclon
                                         var kaigyou2 = line2.childend.before;
                                         line2.childend.RemoveBefore();
                                         line.childend.Next(kaigyou2);
+                                        e.state.Update();
                                         var state = e.state.Clone();
                                         state.elements[state.elements.Count - 2] = line;
                                         state.elements[state.elements.Count - 1] = kaigyou2;
@@ -598,13 +799,14 @@ namespace Cyclon
                                             {
                                                 var start = line3.childend.next;
                                                 line5.childend.RemoveBefore();
-                                                line3.FirstRange(line5.childend.next);
+                                                line3.FirstRange(line5.childend.before);
                                                 var state2 = e.state.Clone();
                                                 state2.elements[state2.elements.Count - 1] = this;
                                                 local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                 line5.next.RemoveBefore();
                                                 e.state.Update();
                                                 e.state.elements[e.state.elements.Count - 1] = next;
+                                                (line3 as Line).childstart = childend;
                                                 return 0;
                                             }
 
@@ -1193,7 +1395,7 @@ namespace Cyclon
             return str + text;
         }
     }
-    class CommentLet : Letter
+    partial class CommentLet : Letter
     {
         bool switched = false;
         public PointF pos3, size3;
@@ -1365,7 +1567,7 @@ namespace Cyclon
                 {
                     if (m.px > m.sizex) m.sizex = m.px;
                 }
-                pos = new PointF(m.x + m.px, m.y + m.py);
+                pos2 = new PointF(m.x + m.px, m.y + m.py);
                 size2.X = 7.5f * text.Length;
                 size2.Y = s.Height;
                 if (m.h < size2.Y) m.h = size2.Y;
@@ -1399,9 +1601,9 @@ namespace Cyclon
                 return -1;
             }
             else
-            if (pos.X <= e.x && e.x < pos.X + size2.X)
+            if (pos2.X <= e.x && e.x < pos2.X + size2.X)
             {
-                if (pos.Y <= e.y && e.y < pos.Y + size.Y)
+                if (pos2.Y <= e.y && e.y < pos2.Y + size.Y)
                 {
                     if (e.call == MouseCall.MouseDown && type == LetterType.Nyoro)
                     {
@@ -1412,7 +1614,7 @@ namespace Cyclon
                     }
                     if (mouse != null) mouse(e, local.local);
                 }
-                return (int)((e.x - pos.X) / 7.5f);
+                return (int)((e.x - pos2.X) / 7.5f);
             }
             if (switched)
             {
@@ -1479,6 +1681,7 @@ namespace Cyclon
         public String text;
         public int indent;
         public Brush brush = Brushes.Black;
+        public String error = null;
         public Letter() : base()
         {
             single = true;
@@ -1542,6 +1745,7 @@ namespace Cyclon
             }
             if (font != null) g.font = font;
             g.g.DrawString(text, g.font, brush, g.x + g.px, g.y + g.py);
+            if (error != null) g.g.DrawLine(new Pen(Brushes.Red, 1), new PointF(g.x + g.px, g.y + g.py + g.h), new PointF(g.x + g.px + size2.X, g.y + g.py + g.h));
             g.px += size2.X;
         }
         public override Element Measure(Measure m, Local local, ref int order)
@@ -1563,7 +1767,7 @@ namespace Cyclon
             {
                 if (m.px > m.sizex) m.sizex = m.px;
             }
-            pos = new PointF(m.x + m.px, m.y + m.py);
+            pos2 = new PointF(m.x + m.px, m.y + m.py);
             size2.X = 7.5f * text.Length;
             size2.Y = s.Height;
             if (m.h < size2.Y) m.h = size2.Y;
@@ -1577,15 +1781,78 @@ namespace Cyclon
             {
                 return -1;
             }
-            if (pos.X <= e.x && e.x < pos.X + size2.X)
+            if (pos2.X <= e.x && e.x < pos2.X + size2.X)
             {
-                if (pos.Y <= e.y && e.y < pos.Y + size.Y)
+                if (pos2.Y <= e.y && e.y < pos2.Y + size.Y)
                 {
                     if (mouse != null) mouse(e, local.local);
                 }
-                return (int)((e.x - pos.X) / 7.5f);
+                return (int)((e.x - pos2.X) / 7.5f);
             }
             return -1;
+        }
+        public override void SelectExe(SelectE e, Local local, ref bool select)
+        {
+            if (local.comlet != null && type == LetterType.End)
+            {
+                local.comlet = null;
+            }
+            else if (local.comlet != null)
+            {
+            }
+            else
+            {
+                if (local.seln == 2) { }
+                else if (select)
+                {
+                    var sel2 = local.selects[(local.seln + 1) % 2];
+                    if (sel2.state.elements[sel2.state.n] == this)
+                    {
+                        select = false;
+                        local.seln = 2;
+                        e.Select(e, this, null, sel2);
+                    }
+                    else
+                    {
+                        e.Select(e, this, null, null);
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < 2; i++)
+                    {
+                        if (local.selects[i].state.elements[local.selects[i].state.n] == this)
+                        {
+                            local.seln = i;
+                            if (local.selects[(i + 1) % 2].state.elements[local.selects[(i + 1) % 2].state.n] == this)
+                            {
+                                local.seln = 2;
+                                var seln = i;
+                                int n1 = local.selects[i].n, n2 = local.selects[(i + 1) % 2].n;
+                                if (n1 > n2)
+                                {
+                                    var ins = n1;
+                                    n1 = n2;
+                                    n2 = ins;
+                                    seln = (i + 1) % 2;
+                                }
+                                e.Select(e, this, local.selects[seln], local.selects[(seln + 1) % 2]);
+                                e.state.elements[e.state.elements.Count - 1] = next;
+                                return;
+                            }
+                            else
+                            {
+                                e.Select(e, this, local.selects[i], null);
+                                e.state.elements[e.state.elements.Count - 1] = next;
+                                select = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            e.state.elements[e.state.elements.Count - 1] = next;
+            return;
         }
         public override int Key(KeyEvent e, Local local, ref bool select)
         {
@@ -1605,6 +1872,7 @@ namespace Cyclon
                     text = text.Substring(sel2.n);
                     select = false;
                     e.state.elements[e.state.elements.Count - 1] = next;
+                    (parent as Line).childstart = parent.childend.next;
                     return 0;
                 }
                 else
@@ -1640,7 +1908,12 @@ namespace Cyclon
                                     var line3 = new Line();
                                     var line4 = e.state.elements[e.state.elements.Count - 2];
                                     line3.AddRange(this.next);
-                                    line3.childend.Next(new Letter() { text = text.Substring(n2, text.Length - n2) });
+                                    if (this is Span)
+                                    {
+                                        var span = this as Span;
+                                        line3.childend.Next(new Span() { text = text.Substring(n2, text.Length - n2), brush = span.brush, statuses = span.statuses });
+                                    }
+                                    else line3.childend.Next(new Letter() { text = text.Substring(n2, text.Length - n2) });
                                     text = text.Substring(0, n1);
                                     this.next = line4.childend;
                                     line4.childend.before = this;
@@ -1674,13 +1947,14 @@ namespace Cyclon
                                                 else
                                                 {
                                                     line2.childend.RemoveBefore();
-                                                    line.FirstRange(line2.childend.next);
+                                                    line.FirstRange(line2.childend.before);
                                                     var state2 = e.state.Clone();
                                                     state2.elements[state2.elements.Count - 1] = this;
                                                     local.selects[0] = local.selects[1] = new Select() { state = state2, n = 0 };
                                                     e.state.Update();
                                                     line2.next.RemoveBefore();
                                                     e.state.elements[e.state.elements.Count - 1] = next;
+                                                    (line as Line).childstart = line.childend.next;
                                                     return 0;
                                                 }
 
@@ -1698,7 +1972,7 @@ namespace Cyclon
                                         }
                                         else
                                         {
-                                            text = text.Substring(0, n1 - 1) + text.Substring(n1, text.Length - n1 - 1);
+                                            text = text.Substring(0, n1 - 1) + text.Substring(n1, text.Length - n1);
                                             var state2 = e.state.Clone();
                                             state2.elements[state2.elements.Count - 1] = this;
                                             local.selects[0] = local.selects[1] = new Select() { state = state2, n = n1 - 1 };
@@ -2354,7 +2628,12 @@ namespace Cyclon
         Sheet,
         Line,
         VirtualLine,
-        Select
+        Select,
+        Percent,
+        And,
+        Mountain,
+        Question,
+        Span
     }
     enum CheckType
     {
@@ -2417,10 +2696,13 @@ namespace Cyclon
                                 return arrtype;
                             }
                         }
-                        block.cls = cls;
-                        for (var i = 0; i < block.rets.Count - 1; i++)
+                        else
                         {
-                            if (CheckCV(block.cls, block.rets[i], type, local) == null) throw new Exception();
+                            block.cls = cls;
+                            for (var i = 0; i < block.rets.Count - 1; i++)
+                            {
+                                if (CheckCV(block.cls, block.rets[i], type, local) == null) throw new Exception();
+                            }
                         }
                     }
                     else

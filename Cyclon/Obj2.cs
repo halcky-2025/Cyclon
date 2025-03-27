@@ -49,13 +49,19 @@ namespace Cyclon
             local.blocks.Add(block2);
             block2.exe(local);
             local.blocks.RemoveAt(local.blocks.Count - 1);
+            local.blockslist.RemoveAt(local.blockslist.Count - 1);
             return this;
         }
+    }
+    class ObjBlock
+    {
+        public Obj obj;
+        public int n = 0;
     }
     partial class Block : Obj
     {
         public Letter letter2;
-        public Obj obj = new Obj(ObjType.None);
+        public ObjBlock obj = new ObjBlock() { obj = new Obj(ObjType.None), n = -1 };
         public Dictionary<String, Obj> vmap = new Dictionary<string, Obj>();
         public List<Obj> rets = new List<Obj>();
         public Type cls;
@@ -70,6 +76,10 @@ namespace Cyclon
                 opes["in"] = In;
                 opes["+"] = opes["-"] = opes["*"] = opes["/"] = Ope;
                 opes["<="] = opes[">="] = opes["<"] = opes["<"] = opes["=="] = opes["!="] = Ope;
+                opesB["="] = opesB[":"] = EqualB;
+                opesB["in"] = InB;
+                opesB["+"] = opesB["-"] = opesB["*"] = opesB["/"] = OpeB;
+                opesB["<="] = opesB[">="] = opesB["<"] = opesB["<"] = opesB["=="] = opesB["!="] = OpeB;
             }
         }
         public override Obj exep(ref int n, Local local, Primary primary)
@@ -82,7 +92,7 @@ namespace Cyclon
                     if ((children[m] as Word).name == "T")
                     {
                         m++;
-                        var val2 = children[n];
+                        var val2 = children[m];
                         Type type = new VariClass(0);
                     head:
                         if (val2.type == ObjType.Block)
@@ -92,7 +102,7 @@ namespace Cyclon
                             {
                                 type = new ArrType(type);
                                 m++;
-                                val2 = children[n];
+                                val2 = children[m];
                                 goto head;
                             }
                             else throw new Exception();
@@ -104,13 +114,13 @@ namespace Cyclon
                             var word = val2 as Word;
                             n++;
                             val2 = primary.children[n];
-                            var gene = false;
+                            /*var gene = false;
                             if (val2.type == ObjType.Gene)
                             {
                                 gene = true;
                                 n++;
                                 val2 = primary.children[n];
-                            }
+                            }*/
                             if (val2.type == ObjType.Block)
                             {
                                 var func = new GenericFunction(type);
@@ -438,6 +448,15 @@ namespace Cyclon
                         {
                             return new Number(rets.Count) { cls = local.Int };
                         }
+                        else if (word.name == "Sort")
+                        {
+                            n++;
+                            if (val2.type == ObjType.Bracket)
+                            {
+                                var blk1 = val2.exeA(local) as Block;
+                                return Sort((Function)blk1.rets[0], local);
+                            }
+                        }
                     }
                 }
             }
@@ -557,7 +576,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Operator : Obj
+    partial class Operator : Obj
     {
         public string name;
         public Operator(string name) : base(ObjType.Operator)
@@ -610,7 +629,7 @@ namespace Cyclon
             this.name = letter.name;
         }
     }
-    class Word : Obj
+    partial class Word : Obj
     {
         public string name;
         public Word(string name) : base(ObjType.Word)
@@ -643,43 +662,45 @@ namespace Cyclon
             switch (name)
             {
                 case "class":
-                    return new Class();
+                    return new Class() { letter = letter };
                 case "var":
-                    return new Var();
+                    return new Var() { letter = letter };
                 case "if":
-                    return new If();
+                    return new If() { letter = letter };
                 case "elif":
-                    return new Obj(ObjType.Elif);
+                    return new Obj(ObjType.Elif) { letter = letter };
                 case "else":
-                    return new Obj(ObjType.Else);
+                    return new Obj(ObjType.Else) { letter = letter };
                 case "while":
-                    return new While();
+                    return new While() { letter = letter };
                 case "label":
-                    return new GeneLabel();
+                    return new GeneLabel() { letter = letter };
                 case "for":
-                    return new For();
+                    return new For() { letter = letter };
                 case "switch":
-                    return new Switch();
+                    return new Switch() { letter = letter };
                 case "return":
-                    return new Return();
+                    return new Return() { letter = letter };
                 case "goto":
-                    return new Goto();
+                    return new Goto() { letter = letter };
                 case "continue":
-                    return new Continue();
+                    return new Continue() { letter = letter };
                 case "client":
-                    return new ServerClient("client");
+                    return new ServerClient("client") { letter = letter };
                 case "server":
-                    return new ServerClient("server");
+                    return new ServerClient("server") { letter = letter };
                 case "signal":
-                    return new Signal();
+                    return new Signal() { letter = letter };
                 case "print":
-                    return new Print();
+                    return new Print() { letter = letter };
                 case "true":
-                    return new BoolVal(true) { cls = local.Bool };
+                    return new BoolVal(true) { cls = local.Bool, letter = letter };
                 case "false":
-                    return new BoolVal(false) { cls = local.Bool };
+                    return new BoolVal(false) { cls = local.Bool, letter = letter };
+                case "model":
+                    return new Model() { letter = letter };
                 case "gene":
-                    return local.gene;
+                    return new Gene() { letter = letter };
                 default:
                     return this;
             }
@@ -693,7 +714,7 @@ namespace Cyclon
         {
         }
     }
-    class Number : Val
+    partial class Number : Val
     {
         public int value;
         public Number(int value) : base(ObjType.Number)
@@ -709,6 +730,16 @@ namespace Cyclon
             opes["<="] = LessEqual;
             opes["!="] = NotEqual;
             opes["=="] = EqualEqual;
+            opesB["+"] = PlusB;
+            opesB["-"] = MinusB;
+            opesB["*"] = MulB;
+            opesB["/"] = DivB;
+            opesB[">"] = MoreThanB;
+            opesB["<"] = LessThanB;
+            opesB[">="] = MoreEqualB;
+            opesB["<="] = LessEqualB;
+            opesB["!="] = NotEqualB;
+            opesB["=="] = EqualEqualB;
         }
         public Number(Letter letter) : this(Convert.ToInt32(letter.name))
         {
@@ -718,8 +749,16 @@ namespace Cyclon
         {
             return this;
         }
+        public override Obj exe(Local local)
+        {
+            return this;
+        }
         public Obj Plus(String op, Local local, Obj val2)
         {
+            if (val2 == null)
+            {
+                return this;
+            }
             if (val2.type == ObjType.Number)
             {
                 return new Number(value + (val2 as Number).value) { cls = local.Int };
@@ -736,6 +775,10 @@ namespace Cyclon
         }
         public Obj Minus(String op, Local local, Obj val2)
         {
+            if (val2 == null)
+            {
+                return new Number(-value) { cls = local.Int };
+            }
             if (val2.type == ObjType.Number)
             {
                 return new Number(value - (val2 as Number).value) { cls = local.Int };
@@ -871,8 +914,17 @@ namespace Cyclon
         {
             return value.ToString();
         }
+        public override Obj Hokan(Obj val2, float p, Local local)
+        {
+            if (val2.type == ObjType.Number)
+            {
+                var num = (val2 as Number).value;
+                return new Number((int)(value * (1 - p) + num * p)) { cls = local.Int };
+            }
+            return this;
+        }
     }
-    class FloatVal : Val
+    partial class FloatVal : Val
     {
         public float value;
         public FloatVal(float value) : base(ObjType.FloatVal)
@@ -888,10 +940,24 @@ namespace Cyclon
             opes["<="] = LessEqual;
             opes["!="] = NotEqual;
             opes["=="] = EqualEqual;
+            opesB["+"] = PlusB;
+            opesB["-"] = MinusB;
+            opesB["*"] = MulB;
+            opesB["/"] = DivB;
+            opesB[">"] = MoreThanB;
+            opesB["<"] = LessThanB;
+            opesB[">="] = MoreEqualB;
+            opesB["<="] = LessEqualB;
+            opesB["!="] = NotEqualB;
+            opesB["=="] = EqualEqualB;
         }
         public FloatVal(Letter letter) : this((float)Convert.ToDouble(letter.name))
         {
             this.letter = letter;
+        }
+        public override Obj exe(Local local)
+        {
+            return this;
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
@@ -899,6 +965,7 @@ namespace Cyclon
         }
         public Obj Plus(String op, Local local, Obj val2)
         {
+            if (val2 == null) return this;
             if (val2.type == ObjType.Number)
             {
                 return new FloatVal(value + (float)(val2 as Number).value) { cls = local.Float };
@@ -915,6 +982,10 @@ namespace Cyclon
         }
         public Obj Minus(String op, Local local, Obj val2)
         {
+            if (val2 == null)
+            {
+                return new FloatVal(-value) { cls = local.Float };
+            }
             if (val2.type == ObjType.Number)
             {
                 return new FloatVal(value - (float)(val2 as Number).value) { cls = local.Float };
@@ -1029,8 +1100,17 @@ namespace Cyclon
         {
             return value.ToString();
         }
+        public override Obj Hokan(Obj val2, float p, Local local)
+        {
+            if (val2.type == ObjType.FloatVal)
+            {
+                var num = (val2 as FloatVal).value;
+                return new FloatVal((int)(value * (1 - p) + num * p)) { cls = local.Float };
+            }
+            return this;
+        }
     }
-    class StrObj : Val
+    partial class StrObj : Val
     {
         public string value;
         public StrObj(string value) : base(ObjType.StrObj)
@@ -1041,6 +1121,10 @@ namespace Cyclon
         {
             this.letter = letter;
             value = letter.name;
+        }
+        public override Obj exe(Local local)
+        {
+            return this;
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
@@ -1055,12 +1139,16 @@ namespace Cyclon
             return "\"" + value + "\"";
         }
     }
-    class BoolVal : Val
+    partial class BoolVal : Val
     {
         public bool value;
         public BoolVal(bool value) : base(ObjType.BoolVal)
         {
             this.value = value;
+        }
+        public override Obj exe(Local local)
+        {
+            return this;
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
@@ -1072,10 +1160,10 @@ namespace Cyclon
         }
         public override string Text()
         {
-            return value.ToString();
+            return value.ToString().ToLower();
         }
     }
-    class VoiVal : Obj
+    partial class VoiVal : Obj
     {
         public VoiVal() : base(ObjType.VoiVal)
         {
@@ -1089,11 +1177,15 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Null : Val
+    partial class Null : Val
     {
         public Null() : base(ObjType.Null)
         {
 
+        }
+        public override Obj exe(Local local)
+        {
+            return this;
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
@@ -1104,7 +1196,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Class : Obj
+    partial class Class : Obj
     {
         public Class() : base(ObjType.Class)
         {
@@ -1133,6 +1225,7 @@ namespace Cyclon
                         {
                             generic.vmap[(val2 as Word).name] = new VariClass(i);
                         }
+                        else throw new Exception();
                     }
                     local.blocks.RemoveAt(local.blocks.Count - 1);
                     generic.block = block;
@@ -1153,6 +1246,7 @@ namespace Cyclon
                     var cls = val2 as ClassObj;
                     if (obj.type == ObjType.ClassObj) (obj as ClassObj).extends.Add(cls);
                     else if (obj.type == ObjType.Generic) (obj as Generic).extends.Add(cls);
+                    else throw new Exception();
                     n++;
                     val2 = primary.children[n];
                     goto head;
@@ -1169,16 +1263,18 @@ namespace Cyclon
                         for (var i = 0; i < block.rets.Count; i++)
                         {
                             val2 = block.rets[i];
-                            if (val2.type == ObjType.ClassObj || val2.type == ObjType.GenericObj)
+                            if (val2 is Type)
                             {
                                 genericobj.draws.Add(val2 as Type);
                             }
+                            else throw new Exception();
                         }
                         n++;
                         val2 = primary.children[n];
                         if (generic.vmap.Count != genericobj.draws.Count) throw new Exception();
                         if (obj.type == ObjType.ClassObj) (obj as ClassObj).extends.Add(genericobj);
                         else if (obj.type == ObjType.Generic) (obj as Generic).extends.Add(genericobj);
+                        else throw new Exception();
                         goto head;
                     }
                 }
@@ -1188,21 +1284,25 @@ namespace Cyclon
             {
                 if (obj.type == ObjType.Generic)
                 {
-                    (obj as Generic).letter2 = (val2.children[1] as Block).letter2;
+                    var generic = obj as Generic;
+                    generic.letter2 = (val2.children[1] as Block).letter2;
+                    generic.draw = val2 as CallBlock;
+                    for (var i = 0; i < local.blocks.Count; i++) generic.blocks.Add(local.blocks[i]);
                 }
                 else if (obj.type == ObjType.ClassObj)
                 {
-                    (obj as ClassObj).letter2 = (val2.children[1] as Block).letter2;
+                    var cbj = obj as ClassObj;
+                    cbj.letter2 = (val2.children[1] as Block).letter2;
+                    cbj.draw = val2 as CallBlock;
+                    for (var i = 0; i < local.blocks.Count; i++) cbj.blocks.Add(local.blocks[i]);
                 }
-                if (obj.type == ObjType.ClassObj) (obj as ClassObj).draw = val2 as CallBlock;
-                else if (obj.type == ObjType.Generic) (obj as Generic).draw = val2 as CallBlock;
                 n++;
                 return obj;
             }
             else throw new Exception();
         }
     }
-    class Constructor : Obj
+    partial class Constructor : Obj
     {
         ClassObj cls;
         public Constructor(ClassObj ret) : base(ObjType.Constructor)
@@ -1273,7 +1373,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Base : Obj
+    partial class Base : Obj
     {
         public Value value;
         public List<Type> extends;
@@ -1354,7 +1454,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Type : Obj
+    partial class Type : Obj
     {
         public Type cls;
         public Letter letter2;
@@ -1445,6 +1545,7 @@ namespace Cyclon
                 if (val2.type == ObjType.Word)
                 {
                     var word2 = val2 as Word;
+                    n++;
                     if (type.type == ObjType.ClassObj || type.type == ObjType.ArrayType)
                     {
                         if (word2.name == "new") return new Constructor(type as ClassObj);
@@ -1479,7 +1580,7 @@ namespace Cyclon
                 word = val2 as Word;
                 n++;
                 val2 = primary.children[n];
-                var last = local.blocks.Last().obj;
+                var last = local.blocks.Last().obj.obj;
                 if (last.type == ObjType.ModelObj || last.type == ObjType.GeneObj)
                 {
                     var obj = type;
@@ -1494,8 +1595,7 @@ namespace Cyclon
             }
             else if (val2.type == ObjType.Bracket)
             {
-                val2.exe(local);
-                var blk = val2 as Block;
+                var blk = val2.Clone().exe(local) as Block;
                 n++;
 
                 for (var i = 0; i < blk.rets.Count; i++)
@@ -1513,7 +1613,7 @@ namespace Cyclon
             if (val2.type == ObjType.Block)
             {
                 var func = new GenericFunction(type);
-                var blk = val2.exe(local) as Block;
+                var blk = val2.Clone().exe(local) as Block;
                 for (var i = 0; i < blk.rets.Count; i++)
                 {
                     if (blk.rets[i].type == ObjType.Word)
@@ -1659,11 +1759,12 @@ namespace Cyclon
             this.n = n;
         }
     }
-    class Generic : Obj
+    partial class Generic : Obj
     {
         public Letter letter2;
         public CallBlock draw;
         public Block block;
+        public List<Block> blocks = new List<Block>();
         public Dictionary<String, Type> vmap = new Dictionary<string, Type>();
         public List<Type> extends = new List<Type>();
         public Generic() : base(ObjType.Generic)
@@ -1683,6 +1784,10 @@ namespace Cyclon
                 var list = new List<Obj>(this.block.vmap.Values);
             }
             throw new Exception();
+        }
+        public override Obj Clone()
+        {
+            return this;
         }
     }
     class GenericObj : Type
@@ -1725,7 +1830,7 @@ namespace Cyclon
             return gj;
         }
     }
-    class ClassObj : Type
+    partial class ClassObj : Type
     {
         public List<Block> blocks = new List<Block>();
         public CallBlock draw;
@@ -1735,8 +1840,12 @@ namespace Cyclon
         {
 
         }
+        public override Obj Clone()
+        {
+            return this;
+        }
     }
-    class Var : Type
+    partial class Var : Type
     {
         public List<Var> connects = new List<Var>();
         public Var() : base(ObjType.Var)
@@ -1748,7 +1857,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Variable : Obj
+    partial class Variable : Obj
     {
         public Obj value;
         public Type cls;
@@ -1762,6 +1871,10 @@ namespace Cyclon
             opes["in"] = In;
             opes["+"] = opes["-"] = opes["*"] = opes["/"] = opes["=="] = opes["!="] = Ope;
             opes["<"] = opes[">"] = opes["<="] = opes[">="] = Ope;
+            opesB["="] = opesB[":"] = EqualB;
+            opesB["in"] = InB;
+            opesB["+"] = opesB["-"] = opesB["*"] = opesB["/"] = opesB["=="] = opesB["!="] = OpeB;
+            opesB["<"] = opesB[">"] = opesB["<="] = opesB[">="] = OpeB;
         }
         public override Obj Getter(Local local)
         {
@@ -1805,7 +1918,7 @@ namespace Cyclon
             return new Variable(cls) { letter = letter};
         }
     }
-    class Iterator : Obj
+    partial class Iterator : Obj
     {
         public Block value;
         public int m;
@@ -1820,7 +1933,7 @@ namespace Cyclon
             else return (value.rets[n] as Block).rets[m];
         }
     }
-    class Value : Val
+    partial class Value : Val
     {
         public Value(Type cls, Block value) : base(ObjType.Value)
         {
@@ -1845,8 +1958,12 @@ namespace Cyclon
             }
             throw new Exception();
         }
+        public override Obj Clone()
+        {
+            return new Value(this.cls) { vmap = vmap };
+        }
     }
-    class GenericFunction : Function
+    partial class GenericFunction : Function
     {
         public Dictionary<String, Type> vmap = new Dictionary<String, Type>();
         public GenericFunction(Type ret) : base(ret)
@@ -1870,7 +1987,7 @@ namespace Cyclon
             return base.Primary(ref n, local, primary, val2);
         }
     }
-    class Function : Obj
+    partial class Function : Obj
     {
         public List<Block> blocks = new List<Block>();
         public CallBlock draw;
@@ -1887,11 +2004,10 @@ namespace Cyclon
         }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
         {
-            val2 = val2.Getter(local);
             if (bracket != null) throw new Exception();
             if (val2.type == ObjType.Bracket)
             {
-                var blk = val2 as Block;
+                var blk = val2.Clone().exe(local).Getter(local) as Block;
                 local.blocks = blocks;
                 var block1 = draw.children[0].Clone() as Block;
                 local.blocks.Add(block1);
@@ -1920,7 +2036,7 @@ namespace Cyclon
             }
             else if (val2.type == ObjType.Number || val2.type == ObjType.StrObj || val2.type == ObjType.BoolVal || val2.type == ObjType.Value)
             {
-
+                val2 = val2.Getter(local);
                 local.blocks = blocks;
                 var block1 = draw.children[0].Clone() as Block;
                 local.blocks.Add(block1);
@@ -1949,8 +2065,12 @@ namespace Cyclon
             }
             throw new Exception();
         }
+        public override Obj Clone()
+        {
+            return new Function(ret) { blocks = blocks, draw = draw, bracket = bracket, block = block };
+        }
     }
-    class If : Obj
+    partial class If : Obj
     {
         public If() : base(ObjType.If) { }
         public override Obj exep(ref int n, Local local, Primary primary)
@@ -1983,6 +2103,8 @@ namespace Cyclon
                     block2.exe(local);
                     retobj = block2.rets.Last().Getter(local);
                     local.blocks.RemoveAt(local.blocks.Count - 1);
+                    local.blocks.RemoveAt(local.blocks.Count - 1);
+                    return retobj;
                 }
                 else retobj = new VoiVal();
                 local.blocks.RemoveAt(local.blocks.Count - 1);
@@ -2017,8 +2139,9 @@ namespace Cyclon
                                 block2.exe(local);
                                 retobj = block2.rets.Last().Getter(local);
                                 local.blocks.RemoveAt(local.blocks.Count - 1);
+                                local.blocks.RemoveAt(local.blocks.Count - 1);
+                                return retobj;
                             }
-                            local.blocks.RemoveAt(local.blocks.Count - 1);
                         }
                         n++;
                         val2 = primary.children[n];
@@ -2055,7 +2178,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class While : Obj
+    partial class While : Obj
     {
         public While() : base(ObjType.While) { }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
@@ -2105,10 +2228,23 @@ namespace Cyclon
                     block2.exe(local);
                     retobj = block2.rets.Last().Getter(local);
                     local.blocks.RemoveAt(local.blocks.Count - 1);
-                    if (retobj.type == ObjType.Break)
+                    if (retobj.type == ObjType.Return || retobj.type == ObjType.Goto)
+                    {
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
+                        return retobj;
+                    }
+                    else if (retobj.type == ObjType.Break)
                     {
                         retobj = (retobj as Break).value;
                         if (retobj == null) retobj = new VoiVal();
+                    }
+                    else if (retobj.type == ObjType.Continue)
+                    {
+                        loop = true;
+                        count++;
+                        retobj = (retobj as Continue).value;
+                        if (retobj == null) retobj = new VoiVal();
+                        goto head;
                     }
                     else
                     {
@@ -2128,7 +2264,7 @@ namespace Cyclon
             return this;
         }
     }
-    class For : Obj
+    partial class For : Obj
     {
         public For() : base(ObjType.For) { }
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
@@ -2184,8 +2320,22 @@ namespace Cyclon
                     local.blocks.RemoveAt(local.blocks.Count - 1);
                     if (retobj.type == ObjType.Break)
                     {
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
                         retobj = (retobj as Break).value;
                         if (retobj == null) retobj = new VoiVal();
+                    }
+                    else if (retobj.type == ObjType.Return || retobj.type == ObjType.Goto)
+                    {
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
+                        return retobj;
+                    }
+                    else if (retobj.type == ObjType.Continue)
+                    {
+                        loop = true;
+                        count++;
+                        retobj = (retobj as Continue).value;
+                        if (retobj == null) retobj = new VoiVal();
+                        goto head;
                     }
                     else
                     {
@@ -2205,7 +2355,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Switch : Obj
+    partial class Switch : Obj
     {
         public Switch() : base(ObjType.Switch) { }
         public override Obj exep(ref int n, Local local, Primary primary)
@@ -2242,9 +2392,16 @@ namespace Cyclon
                 for (var i = label.n; i < last; i++)
                 {
                     block2.rets.Add(retobj = block2.children[i].exe(local));
-                    if (retobj.type == ObjType.Continue || retobj.type == ObjType.Return || retobj.type == ObjType.Goto) break;
+                    if (retobj.type == ObjType.Continue || retobj.type == ObjType.Return || retobj.type == ObjType.Goto)
+                    {
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
+                        break;
+                    }
                     else if (retobj.type == ObjType.Break)
                     {
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
+                        local.blocks.RemoveAt(local.blocks.Count - 1);
                         retobj = (retobj as Break).value;
                         break;
                     }
@@ -2257,7 +2414,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Break : Obj
+    partial class Break : Obj
     {
         public Obj value;
         public Break() : base(ObjType.Break)
@@ -2310,18 +2467,38 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Continue : Obj
+    partial class Continue : Obj
     {
+        public Obj value;
         public Continue() : base(ObjType.Continue)
         {
 
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
-            return this;
+            var val2 = primary.children[n + 1].Clone().exe(local).Getter(local);
+        head:
+            if (val2.type == ObjType.Number || val2.type == ObjType.StrObj || val2.type == ObjType.BoolVal || val2.type == ObjType.Value || val2.type == ObjType.Block || val2.type == ObjType.GeneValue || val2.type == ObjType.Comment)
+            {
+                n++;
+                value = val2;
+                return this;
+            }
+            else if (val2.type == ObjType.Bracket)
+            {
+                n++;
+                var block = val2 as Block;
+                if (block.rets.Count == 1)
+                {
+                    val2 = block.rets[0];
+                    goto head;
+                }
+                else throw new Exception();
+            }
+            else return this;
         }
     }
-    class Return : Obj
+    partial class Return : Obj
     {
         public Obj value;
         public Return() : base(ObjType.Return)
@@ -2373,7 +2550,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Goto : Obj
+    partial class Goto : Obj
     {
         public String value;
         public Goto() : base(ObjType.Goto)
@@ -2403,7 +2580,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class Print : Obj
+    partial class Print : Obj
     {
         public Print() : base(ObjType.Print)
         {
@@ -2451,10 +2628,10 @@ namespace Cyclon
                 n++;
                 return new VoiVal();
             }
-            return base.Primary(ref n, local, primary, val2);
+            throw new Exception();
         }
     }
-    class Model : Obj
+    partial class Model : Obj
     {
         public Dictionary<String, Obj> vmap = new Dictionary<string, Obj>();
         public Model() : base(ObjType.Model)
@@ -2490,15 +2667,18 @@ namespace Cyclon
                                 var blk = val2.Clone().exe(local).Getter(local) as Block;
                                 if (word2.name == "First")
                                 {
+                                    if (blk.rets.Count != 0) throw new Exception();
                                     return local.db.First(modelobj, local);
                                 }
                                 else if (word2.name == "Select")
                                 {
+                                    if (blk.rets.Count != 1) throw new Exception();
                                     return local.db.Select(modelobj, local, (Function)blk.rets[0]);
                                 }
                                 else if (word2.name == "Sort")
                                 {
-                                    return local.db.Select(modelobj, local, (Function)blk.rets[0]);
+                                    if (blk.rets.Count != 1) throw new Exception();
+                                    return local.db.Sort(modelobj, local, (Function)blk.rets[0]);
                                 }
                             }
                         }
@@ -2507,8 +2687,12 @@ namespace Cyclon
                     {
                         if (val2.type == ObjType.Bracket)
                         {
-                            var blk = val2.Clone().exe(local).Getter(local);
-                            return local.db.Store((Val)val2, local);
+                            var blk = (val2.Clone().exe(local).Getter(local) as Block);
+                            for(var i = 0; i < blk.rets.Count; i++)
+                            {
+                                local.db.Store((Val)blk.rets[i], local);
+                            }
+                            return new VoiVal();
                         }
                     }
                 }
@@ -2524,8 +2708,8 @@ namespace Cyclon
                 if (val2.type == ObjType.CallBlock)
                 {
                     gj.letter2 = (val2.children[1] as Block).letter2;
-                    gj.call = val2 as CallBlock;
-                    (gj.call.children[1] as Block).obj = gj;
+                    gj.draw = val2 as CallBlock;
+                    (gj.draw.children[1] as Block).obj = new ObjBlock() { obj = gj, n = 1 };
                     n++;
                     return gj;
                 }
@@ -2533,9 +2717,8 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class ModelObj : ClassObj
+    partial class ModelObj : ClassObj
     {
-        public CallBlock call;
         public ModelObj() : base()
         {
             this.type = ObjType.ModelObj;
@@ -2544,9 +2727,17 @@ namespace Cyclon
         {
             return this;
         }
+        public override Obj Clone()
+        {
+            return this;
+        }
     }
-    class ModelVal : Val
+    partial class ModelVal : Val
     {
+        public ModelVal(ModelObj cls) : base(ObjType.ModelValue)
+        {
+            this.cls = cls;
+        }
         public ModelVal(ModelObj cls, Block block) : base(ObjType.ModelValue)
         {
             this.cls = cls;
@@ -2583,38 +2774,19 @@ namespace Cyclon
             }
             throw new Exception();
         }
+        public override Obj Clone()
+        {
+            return new ModelVal(cls as ModelObj) {vmap = vmap};
+        }
     }
-    class ModelStore : Obj
+    partial class StockType: Type
     {
-        public ModelStore() : base(ObjType.ModelStore)
+        public StockType() : base(ObjType.StockType)
         {
-        }
-        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
-        {
-            if (val2.type == ObjType.Bracket)
-            {
-                var block = val2.exe(local).Getter(local) as Block;
-                n++;
-                foreach(var obj in block.rets)
-                {
-                    if (obj.type == ObjType.ModelObj)
-                    {
 
-                    }
-                    else if (obj.type == ObjType.ArrayType)
-                    {
-
-                    }
-                    else if (obj.type == ObjType.Stock)
-                    {
-
-                    }
-                }
-            }
-            throw new Exception();
         }
     }
-    class Stock : Obj
+    partial class Stock : Obj
     {
         public Dictionary<Object, List<Val>> stocks = new Dictionary<object, List<Val>>();
         public Stock() : base(ObjType.Stock)
@@ -2758,7 +2930,7 @@ namespace Cyclon
             return new VoiVal();
         }
     }
-    class Gene : Obj
+    partial class Gene : Obj
     {
         public Dictionary<String, Obj> vmap = new Dictionary<string, Obj>();
         public GeneObj gj;
@@ -2785,9 +2957,33 @@ namespace Cyclon
                 {
                     gj.letter2 = (val2.children[1] as Block).letter2;
                     gj.call = val2 as CallBlock;
-                    (gj.call.children[1] as Block).obj = gj;
+                    (gj.call.children[1] as Block).obj = new ObjBlock() { obj = gj, n = 1 };
                     foreach (var blk in local.blocks) gj.blocks.Add(blk);
                     n++;
+                    val2 = primary.children[n];
+                head:
+                    if (val2.type == ObjType.Left)
+                    {
+                        n++;
+                        val2 = primary.children[n];
+                        if (val2.type == ObjType.CallBlock)
+                        {
+                            gj.left = val2 as CallBlock;
+                            n++;
+                            goto head;
+                        }
+                    }
+                    else if (val2.type == ObjType.Right)
+                    {
+                        n++;
+                        val2 = primary.children[n];
+                        if (val2.type == ObjType.CallBlock)
+                        {
+                            gj.right = val2 as CallBlock;
+                            n++;
+                            goto head;
+                        }
+                    }
                     return gj;
                 }
             }
@@ -2796,9 +2992,33 @@ namespace Cyclon
                 var gj = new GeneObj();
                 local.gene.vmap[""] = gj;
                 gj.call = val2 as CallBlock;
-                (gj.call.children[1] as Block).obj = gj;
+                (gj.call.children[1] as Block).obj = new ObjBlock() { obj = gj, n = 1 };
                 foreach (var blk in local.blocks) gj.blocks.Add(blk);
                 n++;
+                val2 = primary.children[n];
+            head:
+                if (val2.type == ObjType.Left)
+                {
+                    n++;
+                    val2 = primary.children[n];
+                    if (val2.type == ObjType.CallBlock)
+                    {
+                        gj.left = val2 as CallBlock;
+                        n++;
+                        goto head;
+                    }
+                }
+                else if (val2.type == ObjType.Right)
+                {
+                    n++;
+                    val2 = primary.children[n];
+                    if (val2.type == ObjType.CallBlock)
+                    {
+                        gj.right = val2 as CallBlock;
+                        n++;
+                        goto head;
+                    }
+                }
                 return gj;
 
             }
@@ -2817,7 +3037,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneChild : Obj
+    partial class GeneChild : Obj
     {
         GeneObj gj;
         public GeneChild(GeneObj gj) : base(ObjType.GeneChild)
@@ -2869,7 +3089,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneMutate : Obj
+    partial class GeneMutate : Obj
     {
         GeneObj gj;
         public GeneMutate(GeneObj gj) : base(ObjType.GeneMutate)
@@ -2886,7 +3106,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneNew : Obj
+    partial class GeneNew : Obj
     {
         GeneObj gj;
         public GeneNew(GeneObj gj) : base(ObjType.GeneNew)
@@ -2903,7 +3123,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneCross : Obj
+    partial class GeneCross : Obj
     {
         GeneObj gj;
         public GeneCross(GeneObj gj) : base(ObjType.GeneCross)
@@ -2921,7 +3141,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneVal : Val
+    partial class GeneVal : Val
     {
         public GeneVal(GeneObj cls) : base(ObjType.GeneValue)
         {
@@ -2942,8 +3162,12 @@ namespace Cyclon
             }
             throw new Exception();
         }
+        public override Obj Clone()
+        {
+            return new GeneVal(cls as GeneObj);
+        }
     }
-    class GeneStore : Obj
+    partial class GeneStore : Obj
     {
         public GeneObj gj;
         public GeneStore(GeneObj gj) : base(ObjType.GeneStore)
@@ -3002,7 +3226,7 @@ namespace Cyclon
             }
         }
     }
-    class GeneSelect : Obj
+    partial class GeneSelect : Obj
     {
         public GeneObj gj;
         public GeneSelect(GeneObj gj) : base(ObjType.GeneSelect)
@@ -3037,7 +3261,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneSort: Obj
+    partial class GeneSort: Obj
     {
         public GeneObj gj;
         public GeneSort(GeneObj gj) : base(ObjType.GeneSort)
@@ -3071,138 +3295,28 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class GeneLabel : Type
+    partial class GeneLabel : Type
     {
         public GeneLabel() : base(ObjType.GeneLabel)
         {
-
-        }
-        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
-        {
-            if (val2.type == ObjType.Word)
-            {
-                var word = val2 as Word;
-                n++;
-                val2 = primary.children[n];
-                var variable = new Variable(this);
-                var gvl = new GeneLabelValue();
-                variable.value = gvl;
-                List<String> names = new List<string>();
-                if (local.blocks.Last().obj.type == ObjType.GeneObj)
-                {
-                    var gj = local.blocks.Last().obj as GeneObj;
-                    if (gj.name != null) names.Add(gj.name);
-                }
-                names.Add(word.name);
-                for (var i = 0; i < local.ids.Count; i++)
-                {
-                    var id = local.ids[i];
-                    if (id.names.Length - 1 != names.Count) continue;
-                    var success = true;
-                    for (var j = 0; j < names.Count; j++)
-                    {
-                        if (id.names[j] != names[j])
-                        {
-                            success = false;
-                            break;
-                        }
-                    }
-                    if (success) gvl.id = id;
-                }
-                var call1 = new CallBlock();
-                call1.children.Add(new NewBlock(ObjType.Call1) { gvl = gvl });
-                call1.children.Add(new CrossBlock(ObjType.Call2));
-                var call2 = new CallBlock();
-                call2.children.Add(new MigrateBlock(ObjType.Call1));
-                call2.children.Add(new NewBlock(ObjType.Call2) { gvl = gvl });
-                variable.left = new Function(null) { draw = call1 };
-                variable.right = new Function(null) { draw = call2 };
-                local.declare(word.name, variable);
-            head1:
-                if (val2.type == ObjType.Left)
-                {
-                    var func = new Function(this);
-                    n++;
-                    val2 = primary.children[n];
-                    if (val2.type == ObjType.Word)
-                    {
-                        var func2 = val2.Getter(local) as Function;
-                        n++;
-                        val2 = primary.children[n];
-                        if (val2.type == ObjType.Block)
-                        {
-                            n++;
-                            val2 = primary.children[n];
-                        }
-                        if (val2.type == ObjType.Bracket)
-                        {
-                            n++;
-                            val2 = primary.children[n];
-                        }
-                        variable.left = func2;
-                        goto head1;
-                    }
-                    else
-                    {
-                        if (val2.type == ObjType.CallBlock)
-                        {
-                            func.draw = val2 as CallBlock;
-                            n++;
-                            val2 = primary.children[n];
-                            variable.left = func;
-                            goto head1;
-                        }
-                        else throw new Exception();
-                    }
-                }
-                else if (val2.type == ObjType.Right)
-                {
-                    var func = new Function(this);
-                    n++;
-                    val2 = primary.children[n];
-                    if (val2.type == ObjType.Word)
-                    {
-                        var func2 = val2.Getter(local) as Function;
-                        n++;
-                        val2 = primary.children[n];
-                        if (val2.type == ObjType.Block)
-                        {
-                            func.block = val2 as Block;
-                            n++;
-                            val2 = primary.children[n];
-                        }
-                        if (val2.type == ObjType.Bracket)
-                        {
-                            func.bracket = val2 as Block;
-                            n++;
-                            val2 = primary.children[n];
-                        }
-                        variable.right = func2;
-                        goto head1;
-                    }
-                    else
-                    {
-                        if (val2.type == ObjType.CallBlock)
-                        {
-                            func.draw = val2 as CallBlock;
-                            n++;
-                            val2 = primary.children[n];
-                            variable.right = func;
-                            goto head1;
-                        }
-                        else throw new Exception();
-                    }
-                }
-                return this;
-            }
-            throw new Exception();
+            var variable = new Variable(this);
+            var gvl = new GeneLabelValue();
+            variable.value = gvl;
+            var call1 = new CallBlock();
+            call1.children.Add(new NewBlock(ObjType.Call1) { gvl = gvl });
+            call1.children.Add(new CrossBlock(ObjType.Call2));
+            var call2 = new CallBlock();
+            call2.children.Add(new MigrateBlock(ObjType.Call1));
+            call2.children.Add(new NewBlock(ObjType.Call2) { gvl = gvl });
+            variable.left = new Function(null) { draw = call1 };
+            variable.right = new Function(null) { draw = call2 };
         }
         public override Obj exep(ref int n, Local local, Primary primary)
         {
             return this;
         }
     }
-    class GeneLabelValue : Val
+    partial class GeneLabelValue : Val
     {
         public Id id;
         public GeneLabelValue() : base(ObjType.GeneLabelValue)
@@ -3227,7 +3341,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class NewBlock : Block
+    partial class NewBlock : Block
     {
         public GeneLabelValue gvl;
         public NewBlock(ObjType type) : base(type)
@@ -3258,7 +3372,7 @@ namespace Cyclon
             return block;
         }
     }
-    class CrossBlock: Block
+    partial class CrossBlock: Block
     {
         public CrossBlock(ObjType type) : base(type)
         {
@@ -3286,7 +3400,7 @@ namespace Cyclon
             return block;
         }
     }
-    class MigrateBlock : Block
+    partial class MigrateBlock : Block
     {
         public MigrateBlock(ObjType type) : base(type)
         {
@@ -3312,7 +3426,7 @@ namespace Cyclon
             return block;
         }
     }
-    class GeneObj: Type
+    partial class GeneObj: ModelObj
     {
         public String name;
         public List<Block> blocks = new List<Block>();
@@ -3322,15 +3436,20 @@ namespace Cyclon
         public CallBlock left;
         public CallBlock right;
         public Dictionary<String, Obj> vmap = new Dictionary<string, Obj>();
-        public GeneObj() : base(ObjType.GeneObj)
+        public GeneObj() : base()
         {
-
+            type = ObjType.GeneObj;
             vmap["New"] = new GeneNew(this);
             vmap["Store"] = new GeneStore(this);
             vmap["Sort"] = new GeneSort(this);
             vmap["Mutate"] = new GeneMutate(this);
             vmap["Cross"] = new GeneCross(this);
             vmap["Child"] = new GeneChild(this);
+            vmap["Select"] = new GeneSelect(this);
+        }
+        public override Obj Clone()
+        {
+            return this;
         }
         public Obj Dot(String name)
         {
@@ -3340,32 +3459,6 @@ namespace Cyclon
         public override Obj exe(Local local)
         {
             return this;
-        }
-        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
-        {
-            if (val2.type == ObjType.Left)
-            {
-                n++;
-                val2 = primary.children[n];
-                if (val2.type == ObjType.CallBlock)
-                {
-                    left = val2 as CallBlock;
-                    n++;
-                    return this;
-                }
-            }
-            else if (val2.type == ObjType.Right)
-            {
-                n++;
-                val2 = primary.children[n];
-                if (val2.type == ObjType.CallBlock)
-                {
-                    right = val2 as CallBlock;
-                    n++;
-                    return this;
-                }
-            }
-            throw new Exception();
         }
         public Obj New(Local local)
         {

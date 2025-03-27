@@ -6,10 +6,11 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.Xml.Schema;
 
 namespace Cyclon
 {
-    class Comment : Obj
+    partial class Comment : Obj
     {
         public Dictionary<String, Letter> vmap = new Dictionary<String, Letter>();
         public Comment() : base(ObjType.Comment)
@@ -22,6 +23,8 @@ namespace Cyclon
             block.vmap["br"] = new ElemType(ObjType.Br);
             block.vmap["sheet"] = new ElemType(ObjType.Sheet);
             block.vmap["cell"] = new ElemType(ObjType.Cell);
+            block.vmap["span"] = new ElemType(ObjType.Span);
+            block.vmap["linear"] = new LinearFunction();
             local.blocks.Add(block);
             Obj ret = null;
             var comelet = (CommentLet)letter;
@@ -30,7 +33,7 @@ namespace Cyclon
             comelet.Renew();
             comelet.elems.Add(comelet.childend.next);
             comelet.nums.Add(0);
-            for(var i = 0; i < children.Count; i++) ret = children[i].exe(local);
+            for (var i = 0; i < children.Count; i++) ret = children[i].exe(local);
             local.blocks.RemoveAt(local.blocks.Count - 1);
             local.comments.RemoveAt(local.comments.Count - 1);
             return this;
@@ -42,6 +45,8 @@ namespace Cyclon
             block.vmap["br"] = new ElemType(ObjType.Br);
             block.vmap["sheet"] = new ElemType(ObjType.Sheet);
             block.vmap["cell"] = new ElemType(ObjType.Cell);
+            block.vmap["span"] = new ElemType(ObjType.Span);
+            block.vmap["linear"] = new LinearFunction();
             local.blocks.Add(block);
             Obj ret = null;
             var comelet = (CommentLet)letter;
@@ -61,7 +66,155 @@ namespace Cyclon
             return new Comment() { letter = letter, vmap = vmap, children = children };
         }
     }
-    class Comment2 : Comment
+    partial class LinearFunction : Obj
+    {
+        public LinearFunction() : base(ObjType.LineraFunction)
+        {
+        }
+        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
+        {
+            if (val2.type == ObjType.Bracket)
+            {
+                n++;
+                var blk = val2.Clone().exe(local).Getter(local) as Block;
+                var anif = new AnimationFunction();
+                foreach(var v in blk.labelmap)
+                {
+                    if (int.TryParse(v.Key, out int n2))
+                    {
+                        anif.imap.Add(n2, blk.rets[v.Value.n].Getter(local) as Block);
+                    }
+                    var val = blk.rets[v.Value.n];
+                }
+                foreach (var val in blk.rets)
+                {
+                    if (val.type == ObjType.FloatVal)
+                    {
+                        anif.interval = (val as FloatVal).value;
+                    }
+                    else if (val.type == ObjType.Number)
+                    {
+                        anif.loop = (val as Number).value;
+                    }
+                }
+                anif.SetInit(local);
+                return anif;
+            }
+            throw new Exception();
+        }
+    }
+    partial class AnimationFunction : Obj
+    {
+        public float interval;
+        public int loop = 1;
+        public SortedList<int, Block> imap = new SortedList<int, Block>();
+        public Div div;
+        public int start;
+        public AnimationFunction() : base(ObjType.AnimationFunction)
+        {
+        }
+        public void SetInit(Local local)
+        {
+            Dictionary<String, SortedList<int, int>> perterns = new Dictionary<string, SortedList<int, int>>();
+            for (var i = 0; i < imap.Count; i++)
+            {
+                foreach (var key in imap.Values[i].labelmap)
+                {
+                    if (!perterns.ContainsKey(key.Key))
+                    {
+                        perterns[key.Key] = new SortedList<int, int>();
+                    }
+                    perterns[key.Key][i] = imap.Keys[i];
+                }
+            }
+            foreach (var key in perterns.Keys)
+            {
+                int n = -1;
+                for (var i = 0; i < imap.Count; i++)
+                {
+                    if (!perterns[key].ContainsKey(i))
+                    {
+                        if (n == -1)
+                        {
+                            imap[i].labelmap.Add(key, new Label() { n = imap[i].rets.Count, name = key });
+                            imap[i].rets.Add(new Null());
+                        }
+                        else
+                        {
+                            var through = true;
+                            for (var j = i + 1; j < imap.Count; j++)
+                            {
+                                if (perterns[key].ContainsKey(j))
+                                {
+                                    imap[i].labelmap.Add(key, new Label() { n = imap[i].rets.Count, name = key });
+                                    imap[i].rets.Add(imap[n].rets[imap[n].labelmap[key].n].Hokan(imap[j].rets[imap[j].labelmap[key].n], (float)(imap.Keys[i] - perterns[key][n]) / (perterns[key][j] - perterns[key][n]), local));
+                                    through = false;
+                                    break;
+                                }
+                            }
+                            if (through)
+                            {
+                                imap[i].labelmap.Add(key, new Label() { n = imap[i].rets.Count, name = key });
+                                imap[i].rets.Add(new Null());
+                            }
+                            continue;
+                        }
+                    }
+                    else n = i;
+                }
+            }
+            start = Environment.TickCount;
+        }
+        public void Interval(int n, Local local)
+        {
+            float n2 = ((n - start) / interval / 10);
+            if (loop > 0 && loop - ((int)n2) / 100 <= 0)
+            {
+                local.animations.Remove(this);
+                Set(div, imap.Values[imap.Count - 1], local);
+                return;
+            }
+            for (var i = 0; i < imap.Count; i++)
+            {
+                if (imap.Keys[i] >= n2 % 100)
+                {
+                    if (i == 0)
+                    {
+                        Set(div, imap.Values[0], local);
+                        return;
+                    }
+                    else
+                    {
+                        var before = imap.Values[i - 1];
+                        var after = imap.Values[i];
+                        var blk = new Block(ObjType.Array);
+                        foreach (var v in before.labelmap)
+                        {
+                            var obj1 = before.rets[before.labelmap[v.Key].n];
+                            var obj2 = after.rets[after.labelmap[v.Key].n];
+                            if (obj1.type == ObjType.Null) continue;
+                            else if (obj2.type == ObjType.Null) continue;
+                            blk.labelmap.Add(v.Key, new Label() { n = blk.rets.Count, name = v.Key });
+                            blk.rets.Add(obj1.Hokan(obj2, n2 % 100 / (imap.Keys[i] - imap.Keys[i - 1]), local));
+                        }
+                        Set(div, blk, local);
+                        return;
+                    }
+                }
+            }
+            Set(div,imap.Values[imap.Count - 1], local);
+        }
+        public void Set(Div div, Block block, Local local)
+        {
+            foreach (var labelmap in block.labelmap)
+            {
+                div.SetParam(labelmap.Key, block.rets[labelmap.Value.n], local);
+            }
+            local.panel.input = true;
+            local.panel.Invalidate();
+        }
+    }
+    partial class Comment2 : Comment
     {
         public Comment2()
         {
@@ -76,7 +229,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Clones : Obj
+    partial class Clones : Obj
     {
         public List<Letter[]> objs = new List<Letter[]>();
         public Clones() : base(ObjType.Clones)
@@ -113,7 +266,7 @@ namespace Cyclon
                 else if (element.type == LetterType.ElemEnd) break;
             }
             Element elem = line;
-            foreach(var obj in objs)
+            foreach (var obj in objs)
             {
                 var elem2 = new CloneElement(obj[0].parent, obj[1].parent);
                 elem.Next(elem2);
@@ -122,7 +275,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Dolor: Obj
+    partial class Dolor : Obj
     {
         public Dolor() : base(ObjType.Dolor)
         {
@@ -140,16 +293,16 @@ namespace Cyclon
             {
                 var word = val2 as Word;
                 n++;
-                switch(word.name)
+                switch (word.name)
                 {
                     case "type":
                         var clones = new Clones();
                         clones.letter = letter;
-                        foreach(var blk in local.blocks)
+                        foreach (var blk in local.blocks)
                         {
-                            foreach(var val in blk.vmap.Values)
+                            foreach (var val in blk.vmap.Values)
                             {
-                                if (val.type == ObjType.ClassObj || val.type == ObjType.ModelObj || val.type == ObjType.GeneObj )
+                                if (val.type == ObjType.ClassObj || val.type == ObjType.ModelObj || val.type == ObjType.GeneObj)
                                 {
                                     var type = val as Type;
                                     if (type.initial) continue;
@@ -174,7 +327,7 @@ namespace Cyclon
                 if (blk.rets[0].type == ObjType.Number)
                 {
                     var str = (val2 as Number).value.ToString();
-                    if (local.comments.Count > 0) local.comments.Last().Add(new Letter() { text = str, name = str, type = LetterType.Htm});
+                    if (local.comments.Count > 0) local.comments.Last().Add(new Letter() { text = str, name = str, type = LetterType.Htm });
                 }
                 else if (blk.rets[0].type == ObjType.StrObj)
                 {
@@ -186,7 +339,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class HtmObj: Obj
+    partial class HtmObj : Obj
     {
         public String text;
         public HtmObj(String text) : base(ObjType.Htm)
@@ -214,7 +367,7 @@ namespace Cyclon
             return this;
         }
     }
-    class TagBlock : CallBlock
+    partial class TagBlock : CallBlock
     {
         public ElemObj divobj;
         public TagBlock() : base()
@@ -235,7 +388,7 @@ namespace Cyclon
                 local.comments.Last().AddNext(divobj.elem);
                 foreach (var l in block1.labelmap.Values)
                 {
-                    divobj.param(l.name, block1.rets[l.n]);
+                    divobj.param(l.name, block1.rets[l.n], local);
                 }
                 var block2 = children[1].Clone().exe(local).Getter(local) as Block;
                 local.comments.Last().Back();
@@ -256,7 +409,7 @@ namespace Cyclon
                 local.comments.Last().AddNext(divobj.elem);
                 foreach (var l in block1.labelmap.Values)
                 {
-                    divobj.param(l.name, block1.rets[l.n]);
+                    divobj.param(l.name, block1.rets[l.n], local);
                 }
                 var block2 = children[1].Clone().exe(local).Getter(local) as Block;
                 local.comments.Last().Back();
@@ -264,9 +417,9 @@ namespace Cyclon
             return this;
         }
     }
-    class ElemType: Obj
+    partial class ElemType : Obj
     {
-        public ElemType(ObjType type): base(type)
+        public ElemType(ObjType type) : base(type)
         {
 
         }
@@ -295,8 +448,16 @@ namespace Cyclon
             }
             else throw new Exception();
         }
+        public override Obj ope(string key, Local local, Obj val2)
+        {
+            if ((key == "+" || key == "!" || key == "*") && val2 == null)
+            {
+                return this;
+            }
+            throw new Exception();
+        }
     }
-    class ElemObj: Obj
+    partial class ElemObj : Obj
     {
         public String key;
         public ElemType type;
@@ -320,11 +481,23 @@ namespace Cyclon
             {
                 elem = new Cell() { id = id };
             }
+            else if (type.type == ObjType.Span)
+            {
+                elem = new Span() { id = id };
+            }
         }
-        public void param(String name, Obj obj)
+        public void param(String name, Obj obj, Local local)
         {
-            (elem as Div).statuses.Add(name, obj);
-            (elem as Div).SetParam(name, obj);
+            if (elem is Div)
+            {
+                (elem as Div).statuses.Add(name, obj);
+                (elem as Div).SetParam(name, obj, local);
+            }
+            else if (elem is Span)
+            {
+                (elem as Span).statuses.Add(name, obj);
+                (elem as Span).SetParam(name, obj, local);
+            }
         }
         public override Obj ope(string key, Local local, Obj val2)
         {
@@ -340,14 +513,14 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class CDec : Obj
+    partial class CDec : Obj
     {
         public CDec() : base(ObjType.Cdec)
         {
 
         }
     }
-    class CFunc : Obj
+    partial class CFunc : Obj
     {
         public CFunc() : base(ObjType.CFunc)
         {
@@ -355,7 +528,7 @@ namespace Cyclon
         }
 
     }
-    class CType : Obj
+    partial class CType : Obj
     {
         public CType() : base(ObjType.CType)
         {
@@ -389,7 +562,7 @@ namespace Cyclon
             return base.Primary(ref n, local, primary, val2);
         }
     }
-    class Signal : Type
+    partial class Signal : Type
     {
         public Signal() : base(ObjType.Signal)
         {
@@ -412,9 +585,9 @@ namespace Cyclon
                     foreach (var b in local.blocks) func.blocks.Add(b);
                     for (var i = local.blocks.Count - 1; i > 0; i--)
                     {
-                        if (local.blocks[i].obj.type == ObjType.ServerFunction)
+                        if (local.blocks[i].obj.obj.type == ObjType.ServerFunction)
                         {
-                            var sf = local.blocks[i].obj as ServerFunction;
+                            var sf = local.blocks[i].obj.obj as ServerFunction;
                             local.sigmap[sf.server.name + ":" + word.name] = func;
                             local.declare(word.name, func);
                             return func;
@@ -425,13 +598,14 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class SignalFunction : Obj
+    partial class SignalFunction : Obj
     {
         public String name;
         public List<Block> blocks = new List<Block>();
         public CallBlock draw;
         public SignalFunction() : base(ObjType.SingnalFunction)
         {
+            cls = new CommentType();
         }
         public override Obj exe(Local local)
         {
@@ -467,7 +641,7 @@ namespace Cyclon
             return name;
         }
     }
-    class ServerClient : Obj
+    partial class ServerClient : Obj
     {
         public String name;
         public ServerClient(String name) : base(ObjType.ServerClient)
@@ -514,7 +688,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class ServerFunction : Obj
+    partial class ServerFunction : Obj
     {
         public String name;
         public ServerClient server;
@@ -523,12 +697,13 @@ namespace Cyclon
         public ServerFunction(ServerClient server) : base(ObjType.ServerFunction)
         {
             this.server = server;
+            this.cls = new CommentType();
         }
         public override Obj exe(Local local)
         {
             local.blockslist.Add(blocks);
             var blk = draw.children[1] as Block;
-            blk.obj = this;
+            blk.obj = new ObjBlock() { obj = this, n = 1 };
             local.blocks.Add(blk);
             blk.exe(local).Getter(local);
             if (blk.rets.Last().type == ObjType.Return)
@@ -548,7 +723,7 @@ namespace Cyclon
             return this;
         }
     }
-    class Connect : Obj
+    partial class Connect : Obj
     {
         public Connect() : base(ObjType.Connect)
         {
@@ -589,7 +764,7 @@ namespace Cyclon
             throw new Exception();
         }
     }
-    class ConnectStock : Stock
+    partial class ConnectStock : Stock
     {
         public Address address;
         public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
@@ -698,13 +873,13 @@ namespace Cyclon
             }
         }
     }
-    class AddressType : Type
+    partial class AddressType : Type
     {
         public AddressType() : base(ObjType.AddressType)
         {
         }
     }
-    class Address : Obj
+    partial class Address : Obj
     {
         public String address;
         public Block draw;
@@ -735,4 +910,215 @@ namespace Cyclon
             throw new Exception();
         }
     }
+    partial class Mountain : Obj
+    {
+        public Mountain(Letter letter) : base(ObjType.Mountain)
+        {
+            this.letter = letter;
+        }
+        public override Obj exep(ref int n, Local local, Primary primary)
+        {
+            n++;
+            var val2 = primary.children[n];
+            var rets = new List<List<int>>();
+        head:
+            if (val2.type == ObjType.Word)
+            {
+                var word = val2 as Word;
+                var num = true;
+                var n2 = word.name.Length;
+                List<int> ret = new List<int>();
+                for (var i = word.name.Length - 1; i >= 0; i--)
+                {
+                    if (num)
+                    {
+                        if ('0' <= word.name[i] && word.name[i] <= '9')
+                        {
+                            if (!num)
+                            {
+                                var n3 = 0;
+                                for (var j = i + 1; j < n2; j++)
+                                {
+                                    n3 *= ('Z' - 'A' + 1);
+                                    n3 += word.name[j] - 'A' + 1;
+                                }
+                                ret.Add(n3);
+                            }
+                        }
+                        else if ('A' <= word.name[i] && word.name[i] <= 'Z')
+                        {
+                            if (num)
+                            {
+                                var text = word.name.Substring(i + 1, n2 - i - 1);
+                                ret.Add(Convert.ToInt32(text) - 1);
+                                n2 = i + 1;
+                                num = !num;
+                            }
+                        }
+                        else throw new Exception();
+                    }
+                }
+                if (num)
+                {
+                    var text = word.name.Substring(0, n2);
+                    ret.Add(Convert.ToInt32(text) - 1);
+                }
+                else
+                {
+                    var n3 = 0;
+                    for (var j = 0; j < n2; j++)
+                    {
+                        n3 *= ('Z' - 'A' + 2);
+                        n3 += word.name[j] - 'A' + 1;
+                    }
+                    ret.Add(n3 - 1);
+                }
+                n++;
+                val2 = primary.children[n];
+                rets.Add(ret);
+                if (rets.Count == 1)
+                {
+                    if (val2.type == ObjType.Mountain)
+                    {
+                        n++;
+                        val2 = primary.children[n];
+                        goto head;
+                    }
+                    var blk = new Block(ObjType.Array);
+                    var blk1 = new Block(ObjType.Array);
+                    blk.rets.Add(blk1);
+                    blk.rets.Add(blk1);
+                    for (var i = 0; i < rets[0].Count; i++)
+                    {
+                        blk1.rets.Add(new Number(rets[0][i]) { cls = local.Int });
+                    }
+                    return blk;
+                }
+                else
+                {
+                    n--;
+                    var blk = new Block(ObjType.Array);
+                    var blk1 = new Block(ObjType.Array);
+                    blk.rets.Add(blk1);
+                    var blk2 = new Block(ObjType.Array);
+                    blk.rets.Add(blk2);
+                    for (var i = 0; i < rets[0].Count; i++)
+                    {
+                        blk1.rets.Add(new Number(rets[0][i]) { cls = local.Int });
+                    }
+                    for (var i = 0; i < rets[1].Count; i++)
+                    {
+                        blk2.rets.Add(new Number(rets[1][i]) { cls = local.Int });
+                    }
+                    //SetArray(blk, new int[minis.Count], minis, maxes, 0, local);
+                    return blk;
+                }
+            }
+            throw new Exception();
+        }
+    }
+    partial class Sum : Obj
+    {
+        public Sheet sheet;
+        public Cell range;
+        public Sum(Sheet sheet, Cell range) : base(ObjType.Sum)
+        {
+            this.sheet = sheet;
+            this.range = range;
+        }
+        public override Obj Primary(ref int n, Local local, Primary primary, Obj val2)
+        {
+            if (val2.type == ObjType.Bracket)
+            {
+                n++;
+                var blk = val2.Clone().exe(local).Getter(local) as Block;
+                var rets = new List<List<int>>();
+                if (blk.rets.Count == 1 && blk.rets[0].type == ObjType.Array)
+                {
+                    var blk2 = blk.rets[0].Clone().exe(local).Getter(local) as Block;
+                    for (var i = 0; i < blk2.rets.Count; i++)
+                    {
+                        rets.Add(new List<int>());
+                        foreach (var nums in (blk2.rets[i].Clone().Getter(local) as Block).rets)
+                        {
+                            if (nums.type == ObjType.Number) rets[i].Add((nums as Number).value);
+                            else throw new Exception();
+                        }
+                    }
+                }
+                else throw new Exception();
+                if (rets[0].Count < rets[1].Count)
+                {
+                    for (var i = rets[0].Count; i < rets[1].Count; i++) rets[0].Add(0);
+                }
+                else if (rets[0].Count > rets[1].Count)
+                {
+                    for (var i = rets[1].Count; i < rets[0].Count; i++) rets[1].Add(0);
+                }
+                var minmax = new List<List<int>>();
+                minmax.Add(new List<int>());
+                minmax.Add(new List<int>());
+                for (var i = 0; i < rets[0].Count; i++)
+                {
+                    if (rets[0][i] <= rets[1][i])
+                    {
+                        minmax[0].Add(rets[0][i]);
+                        minmax[1].Add(rets[1][i]);
+                    }
+                    else
+                    {
+                        minmax[1].Add(rets[0][i]);
+                        minmax[0].Add(rets[1][i]);
+                    }
+                }
+                int[] array = new int[minmax.Count];
+                var n2 = 0;
+                ObjInt c = new ObjInt();
+                List<Cell> cells = new List<Cell>();
+                SetArray((nums) =>
+                {
+                    c.count++;
+                    var text = sheet.cells[nums[0]][nums[1]].Text3(local).Trim(); ;
+                    sheet.cells[nums[0]][nums[1]].relations.relations[new Point(nums[1], nums[0])] = new RelationCell() { x = nums[1], y = nums[0] , count = c};
+                    if (text != "") n2 += Convert.ToInt32(text);
+                    cells.Add(sheet.cells[nums[0]][nums[1]]);
+                }, array, minmax, 0, local);
+                return new Number(n2) { cls = local.Int };
+            }
+            throw new Exception();
+        }
+        void SetArray(Action<int[]> task, int[] nums, List<List<int>> minimax, int n, Local local)
+        {
+            if (n == minimax[0].Count)
+            {
+                task(nums);
+                return;
+            }
+            for (var i = minimax[0][n]; i <= minimax[1][n]; i++)
+            {
+                nums[n] = i;
+                SetArray(task, nums, minimax, n + 1, local);
+            }
+        }
+    }
+    partial class Question : Obj
+    {
+        public Question(Letter letter) : base(ObjType.Question)
+        {
+            this.letter = letter;
+        }
+        public override Obj exep(ref int n, Local local, Primary primary)
+        {
+            var blk = new Block(ObjType.Array);
+            var blk1 = new Block(ObjType.Array);
+            blk.rets.Add(blk1);
+            blk.rets.Add(blk1);
+            for (var i = 0; i < 2; i++)
+            {
+                blk1.rets.Add(new Number(0) { cls = local.Int });
+            }
+            return blk1;
+        }
+    }
 }
+

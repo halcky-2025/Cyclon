@@ -22,7 +22,7 @@ gene{
     var n = 2.random()
     if (n == 0) return v1
     else return v2
-  }<-{0.1| val.length.random()}
+  }->{0.1| val.length.random()}
   int m <- {int.max.random()|
     return (v1 + v2) / 2
   }
@@ -178,7 +178,6 @@ client{
       }
      >
 }
-re
 <+div log|
   <+div log1022|`アプリを起動しました。>
   <div log1033|`アプリを更新しました。>
@@ -199,3 +198,37 @@ re
       <td|`4>
   >
 >
+<div log, #pos "static", #anim linear(#0 [#left 10px, #top 10px], #50 [#left 30px, #top 30px], #100 [#left 50px, #top 50px], 3.0, -1), #z-index: 1|
+   `Hello World
+>
+var hello{var x, var y|
+  var h = hello2(x, y)
+  var z = 1
+  return z
+}
+var hello2{var x, var y|
+    var x = 1
+    x = if {x == 1|hello(x, y)} else {| 2}
+    var z = 1
+    return z;
+}
+elem Div2{Id id|
+  prop var left = 0
+  prop var right = 0
+  prop var title = ""
+  prop var body = ""
+  var content = ~ ~~
+  content = ~<div, #left left, #top top|
+    <div $[id]title|$(title)>
+    <div $[id]body|$(body)>
+  >~~
+  var titleContent{|
+    return content.title
+  }
+  var bodyContent{|
+    return content.body
+  }
+  prop var keydown = null
+  prop var keyup = null
+  return content
+}

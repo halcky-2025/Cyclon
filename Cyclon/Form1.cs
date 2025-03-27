@@ -10,6 +10,9 @@ using System.Runtime.InteropServices;
 using OpenAI;
 using OpenAI.Chat;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using WMPLib;
+using System.IO.Pipelines;
 namespace Cyclon
 {
     partial class Form1 : Form
@@ -23,8 +26,11 @@ namespace Cyclon
         public RichTextPanel text;
         public RichTextPanel vision1;
         public OpenAIClient client;
+        public Local local;
+        public Vision vis;
         public Form1()
         {
+            int? x = 1;
             InitializeComponent();
             using TestContext tc = new();
             text = new RichTextPanel(this);
@@ -34,9 +40,6 @@ namespace Cyclon
             vision1.local.size.X = vision1.Parent.Width;
             vision1.local.size.Y = vision1.Parent.Height;
             init();
-            text.local.vision = vision1.local as Vision;
-            text.local.local = text.local;
-            vision1.local.local = text.local;
             //OPI();
         }
         public async Task<int> OPI(Line line, Element element, String str, Local local)
@@ -85,21 +88,22 @@ namespace Cyclon
                 await tc.SaveChangesAsync();
                 client = new OpenAIClient(td.oapi);
                 text.Add("");
-                text.history.Add("\0");
             }
             else
             {
                 var td = await tc.TestData.FirstAsync();
                 client = new OpenAIClient(td.oapi);
                 text.Add(td.Name);
-                text.history.Add(td.Name + "\0");
                 try
                 {
-                    var item = Start(text.local);
+                    var error = false;
+                    var item = Start(text.local, ref error);
                     text.local.Setid();
                     item.exe(text.local);
                 }
-                catch (Exception e) { }
+                catch (Exception e) {
+                    local.blockslist = new List<List<Block>>();
+                }
             }
         }
         private void Form1_Load(object sender, EventArgs e)
@@ -114,7 +118,8 @@ namespace Cyclon
             var td = await tc.TestData.FirstAsync();
             td.Name = text.Text.Substring(0, text.Text.Length);
             await tc.SaveChangesAsync();
-            var item = Start(text.local);
+            var error = false;
+            var item = Start(text.local, ref error);
             text.local.Setid();
             item.exe(text.local);
             if (text.local.sigmap.ContainsKey("server")) text.local.sigmap["server"].exe(text.local);
@@ -156,9 +161,6 @@ namespace Cyclon
             td.Name = "";
             await tc.SaveChangesAsync();
             text.Add("");
-            text.local.local = text.local;
-            text.local.vision = vision1.local as Vision;
-            vision1.local.local = text.local;
         }
         public String totext = "";
         private void button4_Click(object sender, EventArgs e)
@@ -170,6 +172,37 @@ namespace Cyclon
         private void button5_Click(object sender, EventArgs e)
         {
             vision1.Add(totext);
+        }
+
+        private async void button6_Click(object sender, EventArgs e)
+        {
+
+            listen = false;
+            int n = 0;
+            using TestContext tc = new();
+            var td = await tc.TestData.FirstAsync();
+            td.Name = text.Text.Substring(0, text.Text.Length);
+            await tc.SaveChangesAsync();
+            Compile2();
+        }
+        public void Compile2()
+        {
+            bool error = false;
+            var item = Start(text.local, ref error);
+            text.local.Setid();
+            item.exeZ(text.local);
+            error = false;
+            item.exeA(text.local);
+            console.Text += "\n" + (item.children[1] as Block).Show("", ref error);
+            error = false;
+            local.calls.Add(local.KouhoSet);
+            item.exeB(text.local);
+            local.calls.RemoveAt(local.calls.Count - 1);
+            console.Text += "\n" + (item.children[1] as Block).Show("@", ref error);
+            vision1.input = true;
+            vision1.Invalidate();
+            text.Invalidate();
+            listen = true;
         }
     }
     class History
@@ -197,7 +230,6 @@ namespace Cyclon
     }
     class RichTextPanel: Panel
     {
-        public History history = new History();
         public CommentLet switched;
         public Form1 form;
         public Local local;
@@ -206,6 +238,7 @@ namespace Cyclon
         public bool input = false;
         public bool switchdraw = false;
         public Capture capture = null;
+        public System.Windows.Forms.Timer timer2 = new System.Windows.Forms.Timer();
         public RichTextPanel(Form1 form)
         {
             DoubleBuffered = true;
@@ -214,29 +247,32 @@ namespace Cyclon
             this.form = form;
             Font = new System.Drawing.Font(new FontFamily("Consolas"), 7.5f);
             TabStop = true;
+            timer2.Interval = 10;
+            timer2.Tick += Timer2_Tick;
+            timer2.Start();
         }
+
+        private void Timer2_Tick(object? sender, EventArgs e)
+        {
+            for (var i = 0; i < local.animations.Count; i++)
+            {
+                local.animations[i].Interval(Environment.TickCount, local);
+            }
+        }
+
         public override string Text
         {
             get
             {
                 return local.Text(local);
             }
-            set
-            {
-                local = new Local() { console = form.console, panel = this };
-                var letters = Form1.Compile(value + "\0", local);
-                for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
-                local.xtype = SizeType.Scroll;
-                local.ytype = SizeType.Scroll;
-                local.size.X = this.Parent.Width;
-                local.size.Y = this.Parent.Height;
-                input = true;
-                Invalidate();
-            }
         }
-        public void Add(String text)
+        public virtual void Add(String text)
         {
-            local = new Local() { console = form.console, panel = this };
+            var textlocal = new TextLocal() { console = form.console, panel = this };
+            textlocal.history.Add(text);
+            local = textlocal;
+            form.local = local;
             var letters = Form1.Compile(text + "\0", local);
             for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
             local.xtype = SizeType.Scroll;
@@ -264,34 +300,20 @@ namespace Cyclon
                     e.Handled = true;
                     local.seln = -1;
                     local.selects[0].state.n = local.selects[1].state.n = 0;
-                    local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = ""}, local, ref select);
-                    if (input == true) history.Add(local.Text(local));
+                    local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = "", ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control, shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift }, local, ref select);
                     Invalidate();
                     break;
-                case Keys.Z:
-                    if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
-                    {
-                        var back = history.Back();
-                        if (back == null) break;
-                        Add(back);
-                        //var item = form.Start(local);
-                        //item.exe(local);
-                        input = true;
+            }
+            if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+            {
+                switch (e.KeyCode)
+                {
+                    case Keys.Y:
+                    case Keys.Z:
+                        local.Key(new KeyEvent() { call = KeyCall.KeyDown, key = e.KeyCode, text = "", ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control, shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift }, local, ref select);
                         Invalidate();
-                    }
-                    break;
-                case Keys.Y:
-                    if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
-                    {
-                        var back = history.Go();
-                        if (back == null) break;
-                        Add(back.Substring(0, back.Length - 1));
-                        var item = form.Start(local);
-                        item.exe(local);
-                        input = true;
-                        Invalidate();
-                    }
-                    break;
+                        break;
+                }
             }
         }
         String ja = "";
@@ -321,8 +343,7 @@ namespace Cyclon
             local.seln = -1;
             local.countn = -1;
             local.selects[0].state.n = local.selects[1].state.n = 0;
-            local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = e.KeyChar.ToString(), key = Keys.None }, local, ref select);
-            if (input == true) history.Add(local.Text(local));
+            local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = e.KeyChar.ToString(), key = Keys.None, ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control, shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift }, local, ref select);
             Invalidate();
         }
 
@@ -334,9 +355,8 @@ namespace Cyclon
             form.console.Text += ja;
             local.seln = -1;
             local.selects[0].state.n = local.selects[1].state.n = 0;
-            local.Key(new KeyEvent() { call = KeyCall.KeyDown, text = ja, key = Keys.None}, local, ref select);
+            local.Key(new KeyEvent() {call = KeyCall.KeyDown, text = ja, key = Keys.None, ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control, shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift }, local, ref select);
             ja = "";
-            if (input == true) history.Add(local.Text(local));
             Invalidate();
         }
         bool mousedown = false;
@@ -373,7 +393,7 @@ namespace Cyclon
             base.OnMouseMove(e);
             if (Control.MouseButtons == MouseButtons.Left)
             {
-                var mouse = new MouseEvent() { call = MouseCall.MouseUp, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
+                var mouse = new MouseEvent() { call = MouseCall.MouseMove, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
                 local.countn = -1;
                 if (capture != null)
                 {
@@ -387,6 +407,24 @@ namespace Cyclon
                 Invalidate();
             }
         }
+        protected override void OnMouseDoubleClick(MouseEventArgs e)
+        {
+            base.OnMouseDoubleClick(e);
+            var mouse = new MouseEvent() { call = MouseCall.DoubleClick, x = e.X, y = e.Y, basepos = new Point(e.X, e.Y), panel = this };
+            local.countn = -1;
+            if (capture != null)
+            {
+                capture.capture(capture, mouse);
+                Form1.ReleaseCapture();
+                capture = null;
+            }
+            else
+            {
+                local.Mouse(mouse, local);
+                local.comlet = null;
+            }
+            Invalidate();
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -397,6 +435,32 @@ namespace Cyclon
                 local.Measure(new Measure() { g = g, font = Font, xtype = SizeType.Scroll, ytype = SizeType.Scroll, panel = this}, local, ref order);
                 local.comlet = null;
                 input = false;
+                if (this is not RichVisionPanel)
+                {
+                    if (local.selects[0].state.elements.Last() == local.selects[1].state.elements.Last() && local.selects[0].n == local.selects[1].n)
+                    {
+                        var letter = local.selects[0].state.elements.Last();
+                        if (letter.type == LetterType.Letter)
+                        {
+                            local.letter = letter;
+                        }
+                        else if (local.selects[0].n == 0 && letter.before.type == LetterType.Letter)
+                        {
+                            local.letter = letter.before;
+                        }
+                        else if (local.selects[0].n == letter.Count() && letter.next.type == LetterType.Letter)
+                        {
+                            local.letter = letter.next;
+                        }
+                        else local.letter = new Letter();
+                        local.kouhos = null;
+                        form.Compile2();
+                        if (local.kouhos != null)
+                        {
+                            local.Measure(new Measure() { g = g, font = Font, xtype = SizeType.Scroll, ytype = SizeType.Scroll, panel = this }, local, ref order);
+                        }
+                    }
+                }
             }
             bool select = false;
             local.Draw(new Graphic() { g = g, font = Font}, local, ref select);
@@ -408,10 +472,25 @@ namespace Cyclon
         public RichVisionPanel(Form1 form) : base(form)
         {
             local = new Vision() { console = form.console, panel = this };
-            local.vision = local as Vision;
+            form.vis = local as Vision;
             local.xtype = SizeType.Break;
             local.ytype = SizeType.Scroll;
             input = true;
         }
+        public override void Add(String text)
+        {
+            local = new Vision() { console = form.console, panel = this};
+            form.vis = local as Vision;
+            var letters = Form1.Compile(text + "\0", local);
+            for (var i = 0; i < letters.Count; i++) local.add(letters[i]);
+            local.xtype = SizeType.Break;
+            local.ytype = SizeType.Scroll;
+            local.size.X = this.Parent.Width;
+            local.size.Y = this.Parent.Height;
+            input = true;
+            Invalidate();
+        }
     }
 }
+
+

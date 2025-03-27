@@ -1,10 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace Cyclon
 {
@@ -83,6 +81,31 @@ namespace Cyclon
                     }
                     i = j - 1;
                 }
+                else if (text[i] == '&')
+                {
+
+                    var j = i + 1;
+                    for (; ; j++)
+                    {
+                        if (j >= text.Length)
+                        {
+
+                            letters.Add(new AndLet() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.And, brush = Brushes.Brown });
+                            break;
+                        }
+                        else if (text[j] == '\n' || text[j] == '\0')
+                        {
+
+                            letters.Add(new AndLet() { text = text.Substring(i, j - i), name = text.Substring(i, j - i), type = LetterType.And, brush = Brushes.Brown });
+                            break;
+                        }
+                    }
+                    i = j - 1;
+                }
+                else if (text[i] == '^')
+                {
+                    letters.Add(new Letter() { text = "^", name = "^", type = LetterType.Mountain });
+                }
                 else if (text[i] == '`')
                 {
                     var j = i + 1;
@@ -146,6 +169,10 @@ namespace Cyclon
                 else if (text[i] == '#')
                 {
                     letters.Add(new Letter() { text = "#", name = "#", type = LetterType.Sharp });
+                }
+                else if (text[i] == '%')
+                {
+                    letters.Add(new Letter() { text = "%", name = "%", type = LetterType.Percent });
                 }
                 else if (text[i] == '@')
                 {
@@ -354,6 +381,10 @@ namespace Cyclon
                     letters.Add(new Kaigyou() { text = "\0", name = "\0", type = LetterType.End });
                     break;
                 }
+                else if (text[i] == '?')
+                {
+                    letters.Add(new Letter() { text = "?", name = "?", type = LetterType.Question });
+                }
                 else if (text[i] >= '\uE000')
                 {
                     letters.Add(new SelectLetter(text[i] - '\uE000'));
@@ -377,21 +408,26 @@ namespace Cyclon
             block.vmap["br"] = new ElemType(ObjType.Br);
             block.vmap["sheet"] = new ElemType(ObjType.Sheet);
             block.vmap["cell"] = new ElemType(ObjType.Cell);
+            block.vmap["span"] = new ElemType(ObjType.Span);
+            block.vmap["linear"] = new LinearFunction();
             local.blocks.Add(block);
             var commentlet = new CommentLet();
             commentlet.instanceslist.Add(new List<Element>());
             local.comments.Add(commentlet);
-            local.panel.form.TagString(local, ObjType.Call1);
+            var error = false;
+            local.panel.form.TagString(local, ObjType.Call1, ref error);
             local.blockslist = new List<List<Block>>();
             local.comments = new List<CommentLet>();
             return letters;
         }
         class State2 : State
         {
+            public int plu = 0;
             public List<Element> tags = new List<Element>();
             public override void plus(int n)
             {
-                for(; this.n < elements.Count; )
+                plu = 0;
+                for (; this.n < elements.Count;)
                 {
                     element = elements[this.n];
                     if (element.type == LetterType.End)
@@ -426,22 +462,26 @@ namespace Cyclon
                         }
                         return;
                     }
+                    plu++;
                     this.n++;
                 }
             }
 
         }
-        public Obj Start(Local local)
+        public Obj Start(Local local, ref bool error)
         {
+            local.analblocks = new List<Block>();
             local.state = new State();
             local.state.elements.Add(local);
             local.state.plus(0);
             var item = new CallBlock();
             item.children.Add(new Block(ObjType.Call1));
-            item.children.Add(Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.End, ObjType.Call2, 0).tobj);
+            var item2 = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.End, ObjType.Call2, 0, ref error).tobj;
+            item.children.Add(item2);
+            local.analblocks.Add(item2);
             return item;
         }
-        Obj Block(Local local, LetterType end, int comments)
+        Obj Block(Local local, LetterType end, int comments, ref bool error)
         {
             var item = new CallBlock();
             if (end == LetterType.MoreThan) item = new TagBlock();
@@ -452,24 +492,27 @@ namespace Cyclon
                 item.children.Add(Block2(local, end, comments));
                 return item;
             }*/
-        head:
+            head:
             if (local.state.letter.type == LetterType.Kaigyou) local.state.plus(1);
-            var item2 = Lines(local, LetterType.Kaigyou, LetterType.Comma, LetterType.Semicolon, LetterType.Bou, ObjType.Call1, comments).tobj;
+            var item2 = Lines(local, LetterType.Kaigyou, LetterType.Comma, LetterType.Semicolon, LetterType.Bou, ObjType.Call1, comments, ref error).tobj;
+            local.analblocks.Add(item2);
             item.children.Add(item2);
-            item.children.Add(Block2(local, end, comments));
+            var item3 = Block2(local, end, comments, ref error);
+            item.children.Add(item3);
+            local.analblocks.Add(item3);
             return item;
         }
-        Obj Block2(Local local, LetterType finish, int comments)
+        Block Block2(Local local, LetterType finish, int comments, ref bool error)
         {
-            var item = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, finish, ObjType.Call2, comments);
+            var item = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, finish, ObjType.Call2, comments, ref error);
             return item.tobj;
         }
-        (Letter letter, Obj tobj) Lines(Local local, LetterType sub, LetterType sub2, LetterType sub3, LetterType finish, ObjType type, int comments)
+        public (Letter letter, Block tobj) Lines(Local local, LetterType sub, LetterType sub2, LetterType sub3, LetterType finish, ObjType type, int comments, ref bool error)
         {
             var item = new Block(type);
             bool tag = false;
             if (finish == LetterType.MoreThan) tag = true;
-        head:
+            head:
             if (local.state.letter.type == LetterType.Sharp)
             {
                 local.state.plus(1);
@@ -480,8 +523,9 @@ namespace Cyclon
                     {
                         var name = local.state.letter.name;
                         var let = local.state.letter;
+                        local.state.letter.error = null;
                         local.state.plus(1);
-                        Label label0 = new Label() {letter = let, name = name };
+                        Label label0 = new Label() { letter = let, name = name };
                         if (local.labelmap.ContainsKey(name))
                         {
                             label0 = local.labelmap[name];
@@ -490,16 +534,18 @@ namespace Cyclon
                         {
                             local.labelmap[name] = label0;
                         }
-                        var label = new Label() {letter = let, name = name, n = item.children.Count };
+                        var label = new Label() { letter = let, name = name, n = item.children.Count };
                         if (item.branchmap.ContainsKey(name)) label = item.branchmap[name];
                         else item.branchmap[name] = label;
                         if (local.state.letter.type == LetterType.Dot)
                         {
+                            local.state.letter.error = null;
                             local.state.plus(1);
                             if (local.state.letter.type == LetterType.Letter || local.state.letter.type == LetterType.Number || local.state.letter.type == LetterType.Str)
                             {
                                 var name2 = local.state.letter.name;
-                                Label label00 = new Label() {letter = local.state.letter, name = name2 };
+                                Label label00 = new Label() { letter = local.state.letter, name = name2 };
+                                local.state.letter.error = null;
                                 if (label0.labelmap.ContainsKey(name2))
                                 {
                                     label00 = label0.labelmap[name2];
@@ -508,16 +554,18 @@ namespace Cyclon
                                 {
                                     label0.labelmap[name2] = label00;
                                 }
-                                var label2 = new Label() {letter = local.state.letter, name = name2, n = item.children.Count };
+                                var label2 = new Label() { letter = local.state.letter, name = name2, n = item.children.Count };
                                 if (label.labelmap.ContainsKey(name2)) label2 = label.labelmap[name2];
                                 else label.labelmap[name2] = label2;
+                                local.state.letter.error = null;
                                 local.state.plus(1);
                                 if (local.state.letter.type == LetterType.Dot)
                                 {
                                     local.state.plus(1);
                                     if (local.state.letter.type == LetterType.Letter || local.state.letter.type == LetterType.Number || local.state.letter.type == LetterType.Str)
                                     {
-                                        Label label000 = new Label() {letter = local.state.letter, name = local.state.letter.name };
+                                        Label label000 = new Label() { letter = local.state.letter, name = local.state.letter.name };
+                                        local.state.letter.error = null;
                                         if (label00.labelmap.ContainsKey(name))
                                         {
                                             label000 = label00.labelmap[name];
@@ -527,15 +575,24 @@ namespace Cyclon
                                             label00.labelmap[name] = label00;
                                         }
                                         var name3 = local.state.letter.name;
-                                        var label3 = new Label() {letter = local.state.letter, name = name3, n = item.children.Count };
+                                        var label3 = new Label() { letter = local.state.letter, name = name3, n = item.children.Count };
                                         if (label2.labelmap.ContainsKey(name3)) label3 = label.labelmap[name3];
                                         else label2.labelmap[name3] = label3;
+                                        local.state.letter.error = null;
                                         local.state.plus(1);
                                     }
-                                    else throw new Exception();
+                                    else
+                                    {
+                                        local.state.letter.error = "Labelの構文が間違っています";
+                                        error = true;
+                                    }
                                 }
                             }
-                            else throw new Exception();
+                            else
+                            {
+                                local.state.letter.error = "Labelの構文が間違っています";
+                                error = true;
+                            }
                         }
                     }
                 }
@@ -543,38 +600,59 @@ namespace Cyclon
                 {
                     var name = local.state.letter.name;
                     var let = local.state.letter;
+                    let.error = null;
                     local.state.plus(1);
                     if (local.state.letter.type == LetterType.Dot)
                     {
+                        local.state.letter.error = null;
                         local.state.plus(1);
                         if (local.state.letter.type == LetterType.Letter || local.state.letter.type == LetterType.Number || local.state.letter.type == LetterType.Str)
                         {
-                            var label = new Label() {letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
+                            var label = new Label() { letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
                             if (item.labelmap.ContainsKey(name)) label = item.labelmap[name];
                             else item.labelmap[name] = label;
-                            if (label.labelmap.ContainsKey(local.state.letter.name)) throw new Exception();
-                            else label.labelmap[local.state.letter.name] = new Label() {letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
+                            if (label.labelmap.ContainsKey(local.state.letter.name))
+                            {
+                                local.state.letter.error = "Labelの構文が間違っています";
+                                error = true;
+                            }
+                            else label.labelmap[local.state.letter.name] = new Label() { letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
                             local.state.plus(1);
                         }
-                        else throw new Exception();
+                        else {
+                            error = true;
+                        };
                     }
                     else
                     {
-                        if (item.labelmap.ContainsKey(name)) throw new Exception();
-                        item.labelmap[name] = new Label() { letter = let, name = name, n = item.children.Count };
+                        if (item.labelmap.ContainsKey(name))
+                        {
+                            local.state.letter.error = "Labelの構文が間違っています";
+                            error = true;
+                        }
+                        else
+                        {
+                            item.labelmap[name] = new Label() { letter = let, name = name, n = item.children.Count };
+                        }
                     }
                 }
                 else if (local.state.letter.type == LetterType.Str)
                 {
                     item.labelmap[local.state.letter.name] = new Label() { letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Number)
                 {
-                    item.labelmap[Convert.ToInt32(local.state.letter.name).ToString()] = new Label() {letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
+                    item.labelmap[Convert.ToInt32(local.state.letter.name).ToString()] = new Label() { letter = local.state.letter, name = local.state.letter.name, n = item.children.Count };
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
-                else throw new Exception();
+                else
+                {
+                    local.state.letter.error = "Labelの構文が間違っています";
+                    error = true;
+                }
             }
             if (local.state.letter.type == sub)
             {
@@ -594,11 +672,12 @@ namespace Cyclon
             else if (local.state.letter.type == finish)
             {
                 var letter = local.state.letter;
+                letter.error = null;
                 item.letter2 = letter;
                 local.state.plus(1);
                 return (letter, item);
             }
-            item.children.Add(Operator(local, 0, comments, tag, type));
+            item.children.Add(Operator(local, 0, comments, tag, type, ref error));
             if (local.state.letter.type == sub)
             {
                 local.state.plus(1);
@@ -617,20 +696,31 @@ namespace Cyclon
             else if (local.state.letter.type == finish)
             {
                 var letter = local.state.letter;
+                letter.error = null;
                 item.letter2 = letter;
                 local.state.plus(1);
                 return (letter, item);
             }
-            throw new Exception();
+            else if (local.state.letter.type == LetterType.End)
+            {
+                return (local.state.letter, item);
+            }
+            else
+            {
+                error = true;
+                local.state.letter.error = "構文解析エラーです";
+                local.state.plus(1);
+                goto head;
+            }
         }
-        Obj Ope1(Local local, int n, int comments, bool tag, ObjType type)
+        Obj Ope1(Local local, int n, int comments, bool tag, ObjType type, ref bool error)
         {
-            if (n < local.operators.Count) return Operator(local, n, comments, tag, type);
-            else return Primary(local, comments, type);
+            if (n < local.operators.Count) return Operator(local, n, comments, tag, type, ref error);
+            else return Primary(local, comments, type, ref error);
         }
-        Obj Operator(Local local, int n, int comments, bool tag, ObjType type)
+        Obj Operator(Local local, int n, int comments, bool tag, ObjType type, ref bool error)
         {
-            var item = Ope1(local, n + 1, comments, tag, type);
+            var item = Ope1(local, n + 1, comments, tag, type,ref error);
             foreach (var op in local.operators[n].types)
             {
                 if (local.state.letter.type == op)
@@ -640,15 +730,16 @@ namespace Cyclon
                         return item;
                     }
                     var item2 = new Operator(local.state.letter);
+                    local.state.letter.error = null;
                     local.state.plus(1);
                     item2.children.Add(item);
-                    item2.children.Add(Ope1(local, n + 1, comments, tag, type));
+                    item2.children.Add(Ope1(local, n + 1, comments, tag, type, ref error));
                     return item2;
                 }
             }
             return item;
         }
-        public Obj TagString(Local local, ObjType type)
+        public Obj TagString(Local local, ObjType type, ref bool error)
         {
             var tags = new List<Obj>();
             for (; ; )
@@ -657,10 +748,11 @@ namespace Cyclon
                 {
                     var letter = local.state.letter;
                     local.state.plus(1);
-                    var tagblock = Block(local, LetterType.MoreThan, 1) as TagBlock; ;
+                    var tagblock = Block(local, LetterType.MoreThan, 1, ref error) as TagBlock;
                     tagblock.letter = letter;
+                    letter.error = null;
                     tagblock.exe(local);
-                    local.state.elements.Insert(local.state.n, tagblock.divobj.elem);
+                    local.state.elements.Insert(local.state.n - (local.state as State2).plu, tagblock.divobj.elem);
                     local.state.n++;
                 }
                 else if (local.state.letter.type == LetterType.End || local.state.letter.type == LetterType.Kaigyou)
@@ -674,7 +766,7 @@ namespace Cyclon
             }
             return null;
         }
-        Obj Primary(Local local, int comments, ObjType type)
+        Obj Primary(Local local, int comments, ObjType type, ref bool error)
         {
             var item = new Primary();
             if (comments > 0)
@@ -682,17 +774,20 @@ namespace Cyclon
                 if (local.state.letter.type == LetterType.Dot || local.state.letter.type == LetterType.Mul || local.state.letter.type == LetterType.RightRight)
                 {
                     item.singleop = new SingleOp(local.state.letter);
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Plus || local.state.letter.type == LetterType.Minus || local.state.letter.type == LetterType.Not)
                 {
                     item.singleop = new SingleOp(local.state.letter);
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
             }
             else if (local.state.letter.type == LetterType.Plus || local.state.letter.type == LetterType.Minus || local.state.letter.type == LetterType.Not)
             {
                 item.singleop = new SingleOp(local.state.letter);
+                local.state.letter.error = null;
                 local.state.plus(1);
             }
             var first = true;
@@ -701,30 +796,34 @@ namespace Cyclon
                 if (comments > 0 && type != ObjType.Call1 && (local.state.letter.type == LetterType.LessThan || local.state.letter.type == LetterType.StringTag))
                 {
                     var letter = local.state.letter;
+                    letter.error = null;
                     local.state.plus(1);
-                    var tagblock = Block(local, LetterType.MoreThan, comments);
+                    var tagblock = Block(local, LetterType.MoreThan, comments, ref error);
                     tagblock.letter = letter;
                     item.children.Add(tagblock);
                 }
                 else if (comments > 0 && local.state.letter.type == LetterType.Dolor)
                 {
                     item.children.Add(new Dolor(local.state.letter));
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Nyoro)
                 {
                     var item2 = new Comment() { letter = local.state.letter };
+                    local.state.letter.error = null;
                     item.children.Add(item2);
                     local.state.plus(1);
-                    var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1);
+                    var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1, ref error);
                     item2.children.Add(ret.tobj);
                 }
                 else if (local.state.letter.type == LetterType.NyoroNyoroNyoro)
                 {
                     var item2 = new Comment2() { letter = local.state.letter };
+                    local.state.letter.error = null;
                     item.children.Add(item2);
                     local.state.plus(1);
-                    var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1);
+                    var ret = Lines(local, LetterType.Kaigyou, LetterType.Semicolon, LetterType.Comma, LetterType.NyoroNyoro, ObjType.Comment, comments + 1, ref error);
                     item2.children.Add(ret.tobj);
                 }
                 else if (comments > 0 && local.state.letter.type == LetterType.HLetter)
@@ -732,47 +831,66 @@ namespace Cyclon
                     item.children.Add(new HtmObj(local.state.letter));
                     local.state.plus(1);
                 }
+                else if (local.state.letter.type == LetterType.Mountain)
+                {
+                    item.children.Add(new Mountain(local.state.letter));
+                    local.state.letter.error = null;
+                    local.state.plus(1);
+                }
+                else if (local.state.letter.type == LetterType.Question)
+                {
+                    item.children.Add(new Question(local.state.letter));
+                    local.state.letter.error = null;
+                    local.state.plus(1);
+                }
                 else if (local.state.letter.type == LetterType.Letter)
                 {
                     item.children.Add(new Word(local.state.letter).Change(local));
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Number)
                 {
                     item.children.Add(new Number(local.state.letter) { cls = local.Int });
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Decimal)
                 {
                     item.children.Add(new FloatVal(local.state.letter) { cls = local.Float });
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.Str)
                 {
                     item.children.Add(new StrObj(local.state.letter) { cls = local.Str });
+                    local.state.letter.error = null;
                     local.state.plus(1);
                 }
                 else if (local.state.letter.type == LetterType.BracketS)
                 {
                     var letter = local.state.letter;
+                    letter.error = null;
                     local.state.plus(1);
-                    var block = Lines(local, LetterType.Semicolon, LetterType.Comma, LetterType.Kaigyou, LetterType.BracketE, ObjType.Bracket, comments).tobj;
+                    var block = Lines(local, LetterType.Semicolon, LetterType.Comma, LetterType.Kaigyou, LetterType.BracketE, ObjType.Bracket, comments, ref error).tobj;
                     block.letter = letter;
                     item.children.Add(block);
                 }
                 else if (local.state.letter.type == LetterType.BlockS)
                 {
                     var letter = local.state.letter;
+                    letter.error = null;
                     local.state.plus(1);
-                    var block = Lines(local, LetterType.Semicolon, LetterType.Comma, LetterType.Kaigyou, LetterType.BlockE, ObjType.Block, comments).tobj;
+                    var block = Lines(local, LetterType.Semicolon, LetterType.Comma, LetterType.Kaigyou, LetterType.BlockE, ObjType.Block, comments, ref error).tobj;
                     block.letter = letter;
                     item.children.Add(block);
                 }
                 else if (local.state.letter.type == LetterType.BraceS)
                 {
                     var letter = local.state.letter;
+                    letter.error = null;
                     local.state.plus(1);
-                    var callblock = Block(local, LetterType.BraceE, comments);
+                    var callblock = Block(local, LetterType.BraceE, comments, ref error);
                     callblock.letter = letter;
                     item.children.Add(callblock);
                 }
@@ -781,6 +899,7 @@ namespace Cyclon
                     if (local.state.letter.type == LetterType.Dot)
                     {
                         item.children.Add(new PrimOp(local.state.letter, ObjType.Dot));
+                        local.state.letter.error = null;
                         local.state.plus(1);
                         first = true;
                         continue;
@@ -788,6 +907,7 @@ namespace Cyclon
                     else if (local.state.letter.type == LetterType.Left)
                     {
                         item.children.Add(new PrimOp(local.state.letter, ObjType.Left));
+                        local.state.letter.error = null;
                         local.state.plus(1);
                         first = true;
                         continue;
@@ -795,19 +915,20 @@ namespace Cyclon
                     else if (local.state.letter.type == LetterType.Right)
                     {
                         item.children.Add(new PrimOp(local.state.letter, ObjType.Right));
+                        local.state.letter.error = null;
                         local.state.plus(1);
                         first = true;
                         continue;
                     }
                     else
                     {
-                        item.children.Add(new Obj(ObjType.None));
+                        item.children.Add(new Obj(ObjType.None) { letter = local.state.letter });
                         return item;
                     }
                 }
                 else
                 {
-                    item.children.Add(new Obj(ObjType.None));
+                    item.children.Add(new Obj(ObjType.None) { letter = local.state.letter});
                     return item;
                 }
                 first = false;
